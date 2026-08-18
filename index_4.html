@@ -1,0 +1,3321 @@
+<!DOCTYPE html>
+<!-- saved from url=(0045)https://editortexto-para-whatsapp.vercel.app/ -->
+<html lang="es-AR"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Editor para WhatsApp — textuales y negritas</title>
+<meta name="description" content="Pegá una nota, marcá cursivas y negritas, y copiá el texto con el markup que WhatsApp entiende.">
+<link rel="preconnect" href="https://fonts.googleapis.com/">
+<link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;family=Instrument+Sans:wght@400..700&amp;display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#131A21;
+    --ink-2:#4A5A66;
+    --ink-3:#7B8B96;
+    --paper:#E6EAEC;
+    --surface:#FFFFFF;
+    --line:#D3DADE;
+    --carbon:#1F3D5C;
+    --pencil:#C8322A;
+    --pencil-soft:#F6E2E0;
+    --bubble:#DCF8C6;
+    --bubble-edge:#C2E5A6;
+    --radius:14px;
+    --mono:"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --body:"Instrument Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --display:"Bricolage Grotesque", "Instrument Sans", system-ui, sans-serif;
+  }
+  *{box-sizing:border-box}
+  /* el atributo hidden tiene que ganarle a cualquier display propio */
+  [hidden]{display:none !important}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--body);
+    font-size:16px;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:38px 22px 60px}
+
+
+  /* ---------- pestañas ---------- */
+  .tabs{display:flex;gap:6px;margin-top:26px}
+  .tab{
+    font-family:var(--mono);font-size:13px;padding:8px 16px;
+    border:1px solid var(--line);border-radius:10px 10px 0 0;border-bottom:0;
+    background:#DDE3E6;color:var(--ink-2);
+  }
+  .tab[aria-pressed="true"]{background:var(--surface);color:var(--ink);font-weight:600}
+  .glifo-x{font-family:var(--body);font-size:15px;line-height:1;vertical-align:-1px;margin-right:3px}
+  .tabs+section .cols{margin-top:0}
+  #vistaX .cols{margin-top:0}
+
+  /* ---------- editor X ---------- */
+  .x-ayuda{font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+  #editorX{
+    min-height:300px;padding:20px 22px;outline:none;
+    font-size:17px;line-height:1.62;overflow-wrap:anywhere;word-break:break-word;
+  }
+  #editorX:empty::before{content:"Escribí o pegá el post…";color:var(--ink-3)}
+  #editorX div{min-height:1.62em}
+  .chat.x{background:#15202B}
+  .chat.x .bubble{background:#1E2A36;border-color:#33414E;border-radius:14px}
+  .chat.x .bubble::after{display:none}
+  #salidaX{
+    margin:0;font-family:var(--body);font-size:15px;line-height:1.5;
+    white-space:pre-wrap;word-break:break-word;color:#E7EDF3;
+  }
+  #salidaX:empty::before{content:"Acá se ve cómo queda en X.";color:#7E8C99}
+  #xTipo{
+    font-family:var(--mono);font-size:11.5px;color:var(--ink);
+    border:1px solid var(--line);border-radius:8px;padding:4px 7px;background:var(--surface);
+  }
+  .foot.pasado{background:var(--pencil-soft)}
+  .foot.pasado #xNum{color:var(--pencil)}
+
+  /* ---------- barra flotante sobre la selección ---------- */
+  .burbuja{
+    position:absolute;z-index:40;display:flex;gap:2px;padding:4px;
+    background:var(--ink);border-radius:10px;
+    box-shadow:0 6px 20px -6px rgba(19,26,33,.55);
+  }
+  .burbuja button{
+    background:transparent;border:0;color:#E7EDF3;
+    font-family:var(--mono);font-size:13px;padding:5px 9px;border-radius:7px;min-width:30px;
+  }
+  .burbuja button:hover{background:#2C3A46}
+  .burbuja-sep{width:1px;background:#3C4A56;margin:4px 3px}
+  .burbuja button[aria-pressed="true"]{background:var(--pencil);color:#fff}
+  .burbuja::after{
+    content:"";position:absolute;bottom:-5px;left:50%;margin-left:-5px;
+    width:10px;height:10px;background:var(--ink);transform:rotate(45deg);
+  }
+
+  /* ---------- encabezado ---------- */
+  .eyebrow{
+    font-family:var(--mono);font-size:12.5px;letter-spacing:.06em;
+    color:var(--pencil);margin:0 0 10px;
+  }
+  .eyebrow span{color:var(--ink-3)}
+  h1{
+    font-family:var(--display);font-weight:800;
+    font-size:clamp(30px,5.2vw,50px);line-height:1.02;
+    letter-spacing:-.025em;margin:0 0 12px;
+  }
+  .lede{margin:0;max-width:56ch;color:var(--ink-2);font-size:16.5px}
+
+  /* ---------- grilla ---------- */
+  .cols{
+    display:grid;grid-template-columns:1.15fr .85fr;gap:22px;
+    margin-top:32px;align-items:start;
+  }
+  @media (max-width:900px){ .cols{grid-template-columns:1fr} }
+  /* sin esto, una URL larga sin espacios estira la columna y expulsa al panel de al lado */
+  .cols > *{min-width:0}
+
+  .pane{
+    background:var(--surface);border:1px solid var(--line);
+    border-radius:var(--radius);overflow:hidden;
+  }
+  /* el panel de edición no puede recortar el overflow o se rompe el sticky */
+  .pane-edit{overflow:visible}
+  .pane-edit .pane-head{border-radius:13px 13px 0 0}
+  .pane-edit .foot{border-radius:0 0 13px 13px}
+  .pane-edit .pane-head{
+    position:sticky;top:0;z-index:6;
+    background:var(--surface);
+    box-shadow:0 1px 0 var(--line), 0 6px 14px -12px rgba(19,26,33,.5);
+  }
+
+  /* ---------- panel de IA ---------- */
+  .ia{
+    display:flex;gap:8px;flex-wrap:wrap;align-items:center;
+    padding:11px 14px;border-top:1px solid var(--line);background:#F5F7F8;
+  }
+  .ia input{
+    font-family:var(--mono);font-size:12.5px;color:var(--ink);
+    border:1px solid var(--line);border-radius:8px;padding:6px 9px;background:var(--surface);
+  }
+  .ia input:focus-visible{outline:2px solid var(--carbon);outline-offset:1px}
+  #apiKey{flex:1 1 210px;min-width:160px}
+  #iaModelo{width:120px}
+  #iaPrompt{flex:1 1 100%;font-family:var(--body);font-size:12.5px}
+  #iaLargo{width:66px;text-align:right}
+  .ia label{font-family:var(--mono);font-size:12px;color:var(--ink-3);display:flex;align-items:center;gap:5px}
+  .ia-check{cursor:pointer;white-space:nowrap}
+  .ia-check input{width:14px;height:14px;accent-color:var(--carbon);margin:0}
+  .ia-nota{
+    padding:0 14px 11px;background:#F5F7F8;margin:0;
+    font-family:var(--mono);font-size:11.5px;color:var(--ink-3);
+  }
+  .ia-nota.error{color:var(--pencil)}
+  .ia-nota.ok{color:#1E6B3A}
+  .fec{background:#F7F3ED;border-top:1px solid var(--line)}
+  .fec-lista{background:#F7F3ED}
+  .fec-rotulo{flex:1 1 240px;font-family:var(--mono);font-size:11.5px;color:var(--ink-3)}
+  .fec-rotulo.alerta{color:var(--pencil)}
+  .fec-row:hover{background:#F0E9DF}
+  .fec-row.elegida{background:#F6E7D2;border-color:#E4CDAC}
+  .fec-nom{
+    flex:1 1 130px;min-width:110px;padding:5px 0;
+    font-family:var(--mono);font-size:12px;color:#7A4A1E;
+  }
+  .loc{background:#F1F5F3;border-top:1px solid var(--line)}
+  .loc-lista{background:#F1F5F3;padding:0 14px 12px;display:flex;flex-direction:column;gap:7px}
+  .loc-row{
+    display:flex;align-items:center;gap:9px;flex-wrap:wrap;min-width:0;
+    padding:5px 8px;border-radius:9px;cursor:pointer;
+    border:1px solid transparent;
+  }
+  .loc-row:hover{background:#E9EFEB}
+  .loc-row.elegida{background:#E0EDE3;border-color:#BFD8C6}
+  .loc-row input[type="checkbox"]{width:16px;height:16px;accent-color:var(--carbon);flex:none;margin:0;cursor:pointer}
+  .loc-tit{
+    flex:1 1 190px;min-width:150px;font-family:var(--body);font-size:12.5px;
+    border:1px solid var(--line);border-radius:8px;padding:5px 9px;background:var(--surface);color:var(--ink);
+  }
+  .loc-nom{
+    flex:1 1 160px;min-width:130px;
+    font-family:var(--mono);font-size:12px;color:var(--ink);
+    border:1px solid transparent;border-radius:8px;padding:5px 8px;background:transparent;
+  }
+  .loc-nom:hover{border-color:var(--line);background:var(--surface)}
+  .loc-nom:focus{border-color:var(--carbon);background:var(--surface);outline:none}
+  .loc-pin{
+    font-family:var(--mono);font-size:11px;color:var(--carbon);
+    text-decoration:none;border-bottom:1px dotted var(--carbon);
+  }
+  .loc-pin:hover{color:var(--pencil);border-color:var(--pencil)}
+  .loc-vacio{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);margin:0}
+  #locRef{width:170px}
+  #locManual{flex:1 1 170px;min-width:140px}
+  .pane-head{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:11px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap;
+  }
+  .pane-title{
+    font-family:var(--mono);font-size:11.5px;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--ink-3);margin:0;
+  }
+
+  /* ---------- barra de herramientas ---------- */
+  .tools{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+  button{
+    font-family:var(--mono);font-size:13px;color:var(--ink);
+    background:var(--surface);border:1px solid var(--line);
+    border-radius:8px;padding:6px 10px;cursor:pointer;
+    transition:background .12s ease,border-color .12s ease,color .12s ease;
+  }
+  button:hover{border-color:var(--carbon)}
+  button:focus-visible{outline:2px solid var(--pencil);outline-offset:2px}
+  button[aria-pressed="true"]{background:var(--carbon);border-color:var(--carbon);color:#fff}
+  .sep{width:1px;height:22px;background:var(--line);margin:0 3px}
+  .pista{font-family:var(--mono);font-size:11px;color:var(--ink-3);align-self:center}
+  .btn-pencil{
+    font-family:var(--body);font-size:13.5px;font-weight:600;
+    background:var(--pencil);border-color:var(--pencil);color:#fff;
+  }
+  .btn-pencil:hover{background:#AE2A23;border-color:#AE2A23}
+  .btn-quiet{font-family:var(--body);font-size:13.5px;color:var(--ink-2)}
+
+  /* ---------- editor ---------- */
+  #editor{
+    min-height:340px;padding:20px 22px;outline:none;
+    font-size:17px;line-height:1.62;
+    overflow-wrap:anywhere;word-break:break-word;
+  }
+  #editor:empty::before{
+    content:"Pegá acá el texto de la nota…";color:var(--ink-3);
+  }
+  #editor code,#editorX code{
+    font-family:var(--mono);font-size:.9em;
+    background:#EDF0F2;border-radius:4px;padding:1px 4px;
+  }
+  #editor b,#editor strong{font-weight:700}
+  #editor i,#editor em{font-style:italic}
+  #editor i.auto{
+    background:linear-gradient(var(--pencil-soft),var(--pencil-soft));
+    box-shadow:inset 0 -1px 0 var(--pencil);
+  }
+  #editor div{min-height:1.62em}
+
+  .foot{
+    display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;
+    padding:10px 14px;border-top:1px solid var(--line);
+    font-family:var(--mono);font-size:12px;color:var(--ink-3);
+  }
+  .foot b{color:var(--pencil);font-weight:600}
+  kbd{
+    font-family:var(--mono);font-size:11px;border:1px solid var(--line);
+    border-bottom-width:2px;border-radius:5px;padding:1px 5px;color:var(--ink-2);
+  }
+
+  /* ---------- salida: burbuja ---------- */
+  .out-pane{position:sticky;top:22px}
+  .alerta-limite{
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    padding:9px 14px;background:var(--pencil-soft);
+    border-bottom:1px solid #EBCFCC;
+    font-family:var(--mono);font-size:12px;color:var(--pencil);
+    position:sticky;top:0;z-index:5;
+  }
+  .alerta-limite button{padding:4px 10px;font-size:12px}
+  .spin{
+    display:inline-block;width:11px;height:11px;margin-right:7px;vertical-align:-1px;
+    border:2px solid currentColor;border-top-color:transparent;border-radius:50%;
+    animation:girar .7s linear infinite;opacity:.9;
+  }
+  @keyframes girar{to{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion:reduce){ .spin{animation:none;border-top-color:currentColor;opacity:.5} }
+  button:disabled{opacity:.75;cursor:progress}
+  .alerta-limite.aviso{background:#FBF0DC;border-bottom-color:#EAD6BC;color:#8A6100}
+  .alerta-limite.aviso button{background:#8A6100;border-color:#8A6100}
+  .fmt{display:flex;gap:0;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+  .fmt-btn{
+    border:0;border-radius:0;font-family:var(--mono);font-size:11.5px;
+    padding:5px 11px;color:var(--ink-2);background:var(--surface);
+  }
+  .fmt-btn[aria-pressed="true"]{background:var(--carbon);color:#fff}
+  .fmt-btn+.fmt-btn{border-left:1px solid var(--line)}
+  .chat{padding:18px 16px 14px;background:#EFE7DE}
+  .chat.tg{background:#DCE7F0}
+  .chat.tg .bubble{background:#EAF3FB;border-color:#C6DDF0}
+  .chat.tg .bubble::after{background:#EAF3FB;border-right-color:#C6DDF0}
+  .chat.tg #salida{color:#12314B}
+  .chat.tg .meta{color:#5E7A94}
+  .bubble{
+    position:relative;background:var(--bubble);border:1px solid var(--bubble-edge);
+    border-radius:10px 2px 10px 10px;padding:12px 14px 8px;
+    max-height:52vh;overflow:auto;
+  }
+  .bubble::after{
+    content:"";position:absolute;top:-1px;right:-9px;width:9px;height:13px;
+    background:var(--bubble);
+    clip-path:polygon(0 0,100% 0,0 100%);
+    border-right:1px solid var(--bubble-edge);
+  }
+  #salida{
+    margin:0;font-family:var(--mono);font-size:13.5px;line-height:1.55;
+    white-space:pre-wrap;word-break:break-word;color:#0F2A16;
+  }
+  #salida:empty::before{content:"El markup aparece acá.";color:#5F7A64}
+  .meta{
+    display:flex;justify-content:flex-end;gap:5px;align-items:center;
+    font-family:var(--mono);font-size:10.5px;color:#5F7A64;margin-top:4px;
+  }
+  .tick{color:#3B9BE0;letter-spacing:-3px;font-size:12px}
+  .limite{
+    display:flex;align-items:center;gap:9px;flex-wrap:wrap;
+    padding:10px 14px;border-top:1px solid var(--line);
+    font-family:var(--mono);font-size:12px;color:var(--ink-3);
+  }
+  .limite select{
+    font-family:var(--mono);font-size:11.5px;color:var(--ink);
+    border:1px solid var(--line);border-radius:8px;padding:4px 7px;background:var(--surface);
+  }
+  .limite.cerca #limNum{color:#8A6100}
+  .limite.pasado{background:var(--pencil-soft)}
+  .limite.pasado #limNum{color:var(--pencil);font-weight:600}
+  #limFoto{color:#8A6100;background:#FBF0DC;border:1px solid #EAD6BC;border-radius:20px;padding:2px 9px}
+  .legend{
+    padding:12px 14px;border-top:1px solid var(--line);
+    font-size:13px;color:var(--ink-2);
+  }
+  .legend code{font-family:var(--mono);font-size:12.5px;color:var(--carbon)}
+  .legend p{margin:0 0 6px}
+  .legend p:last-child{margin:0}
+  @media (max-width:900px){ .out-pane{position:static} .bubble{max-height:none} }
+  @media (prefers-reduced-motion:reduce){ *{transition:none!important} }
+
+  /* ---------- tapa de diario ---------- */
+  .tapa-dz{
+    margin:16px;padding:30px 18px;border:2px dashed var(--line);border-radius:12px;
+    text-align:center;cursor:pointer;background:#FBFCFC;
+    font-family:var(--mono);font-size:12px;color:var(--ink-3);
+    transition:border-color .12s ease,background .12s ease;
+  }
+  .tapa-dz:hover,.tapa-dz.encima{border-color:var(--carbon);background:#F1F5F8;color:var(--ink-2)}
+  .tapa-dz b{
+    display:block;font-family:var(--body);font-weight:600;font-size:14.5px;
+    color:var(--ink);margin-bottom:5px;
+  }
+  .tapa-lienzo{padding:16px 16px 0}
+  #tapaPreview{
+    display:block;max-width:100%;max-height:460px;margin:0 auto;
+    border:1px solid var(--line);border-radius:10px;
+  }
+  #tapaKey{flex:1 1 210px;min-width:160px}
+  #tapaModelo{width:104px}
+  #salidaTapa{
+    margin:0;font-family:var(--mono);font-size:13.5px;line-height:1.55;
+    white-space:pre-wrap;word-break:break-word;color:#0F2A16;
+  }
+  #salidaTapa:empty::before{content:"Acá aparece el posteo listo.";color:#5F7A64}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="eyebrow">_cursiva_ &nbsp;*negrita*&nbsp; <span>~tachado~</span></p>
+  <h1 id="titulo">Editor de posteos</h1>
+  <p class="lede" id="lede">Al pegar, los textuales entre comillas salen en cursiva solos. Todo lo demás lo decidís vos: negritas, tachados, viñetas, citas. Del otro lado sale el texto con el markup que WhatsApp entiende, listo para copiar.</p>
+
+  <div class="tabs" role="tablist">
+    <button id="tabWa" class="tab" aria-pressed="true">WhatsApp / Telegram</button>
+    <button id="tabX" class="tab" aria-pressed="false"><span class="glifo-x">𝕏</span> X</button>
+    <button id="tabTapa" class="tab" aria-pressed="false">📰 Tapa</button>
+  </div>
+
+  <section id="vistaWa">
+  <div class="cols">
+
+    <!-- ------- redacción ------- -->
+    <section class="pane pane-edit">
+      <div class="pane-head">
+        <div class="tools">
+          <span class="pista">Seleccioná texto y aparecen negritas, cursivas y listas sobre el cursor</span>
+          <span class="sep"></span>
+          <button id="bCita" class="btn-quiet" title="Pasa a cita en bloque los textuales que ocupan su propia línea">&gt; textuales</button>
+          <button id="bTipo" class="btn-quiet" title="Comillas curvas, puntos suspensivos, rayas de inciso y espacios">Tipografía</button>
+          <button id="bTitulo" class="btn-quiet" title="Pasa la línea de MAYÚSCULAS a caja normal y la deja en negrita">Aa título</button>
+          <button id="bDetect" class="btn-pencil" title="Vuelve a marcar en cursiva todo lo que esté entre comillas">Redetectar textuales</button>
+          <button id="bUndetect" class="btn-quiet">Sacar detección</button>
+          <button id="bTraerWa" class="btn-quiet" title="Copia acá el texto del editor de X">Traer de 𝕏</button>
+          <button id="bClear" class="btn-quiet" title="Vacía el editor, la salida y la lista de ubicaciones">Nuevo</button>
+        </div>
+      </div>
+
+      <div class="alerta-limite" id="alertaLimite" hidden="">
+        <span id="alertaTexto">El texto supera el límite.</span>
+        <button id="bReducirLim" class="btn-pencil">Reducir con IA</button>
+      </div>
+
+      <div id="editor" contenteditable="true" spellcheck="true" role="textbox" aria-multiline="true" aria-label="Texto de la nota"></div>
+
+      <div class="ia fec">
+        <span class="fec-rotulo" id="fecRotulo">Fechas detectadas · el teléfono ya las hace tocables; tildá cuáles señalar con 🔔 en el cuerpo</span>
+        <button id="bFecIns" class="btn-pencil" disabled="">Marcar con 🔔 (0)</button>
+      </div>
+      <div class="loc-lista fec-lista" id="fechasLista"><p class="loc-vacio">Sin fechas ni horarios detectados.</p></div>
+
+      <div class="ia loc">
+        <input id="locRef" value="Buenos Aires, Argentina" aria-label="Referencia para direcciones">
+        <label class="ia-check"><input type="checkbox" id="locPin" checked=""> 📍 antes del lugar</label>
+        <label class="ia-check" title="Suma la dirección postal para que el iPhone la detecte solo"><input type="checkbox" id="locDir"> dirección postal</label>
+        <input id="locManual" placeholder="Sumar un lugar a mano" aria-label="Sumar un lugar a mano">
+        <button id="bLocAdd" class="btn-quiet">Sumar</button>
+        <button id="bLocIns" class="btn-pencil" disabled="">Agregar al texto (0)</button>
+      </div>
+      <div class="loc-lista" id="locLista"><p class="loc-vacio">Sin ubicaciones detectadas todavía. Pegá el texto o sumá un lugar a mano.</p></div>
+
+      <div class="ia">
+        <input id="apiKey" type="password" placeholder="sk-… tu API key de OpenAI" autocomplete="new-password" spellcheck="false" aria-label="API key de OpenAI">
+        <button id="bVerKey" class="btn-quiet" type="button" aria-label="Mostrar u ocultar la key">ver</button>
+        <label class="ia-check"><input type="checkbox" id="recordarKey" checked=""> recordar</label>
+        <input id="iaModelo" value="gpt-5.6-terra" aria-label="Modelo">
+        <label>máx. <input id="iaLargo" type="number" value="600" min="120" step="50" aria-label="Caracteres objetivo"> car.</label>
+        <button id="bIA" class="btn-pencil">Reducir con IA</button>
+        <button id="bVolver" class="btn-quiet" hidden="">Volver al original</button>
+        <input id="iaPrompt" placeholder="Indicaciones para el reintento (ej: sacá el segundo textual, arrancá por la fecha)" aria-label="Indicaciones extra">
+      </div>
+      <p class="ia-nota" id="iaEstado">La key se guarda en este navegador y va directo a OpenAI, sin pasar por ningún servidor propio. Destildá “recordar” si la máquina es compartida.</p>
+
+      <div class="foot">
+        <span><b id="nQuotes">0</b> textuales · <span id="nLinks">0</span> enlaces · <span id="nFechas">0</span> fechas · <span id="nChars">0</span> caracteres</span>
+        <span><kbd>Ctrl</kbd>+<kbd>B</kbd> negrita · <kbd>Ctrl</kbd>+<kbd>I</kbd> cursiva</span>
+      </div>
+    </section>
+
+    <!-- ------- salida ------- -->
+    <section class="pane out-pane">
+      <div class="pane-head">
+        <div class="fmt">
+          <button id="bFmtWa" class="fmt-btn" aria-pressed="true">WhatsApp</button>
+          <button id="bFmtTg" class="fmt-btn" aria-pressed="false">Telegram</button>
+        </div>
+        <button id="bCopy" class="btn-pencil">Copiar</button>
+      </div>
+
+      <div class="chat">
+        <div class="bubble">
+          <pre id="salida"></pre>
+          <div class="meta"><span id="hora">19:05</span><span class="tick">✓✓</span></div>
+        </div>
+      </div>
+
+      <div class="limite" id="limite">
+        <span id="limNum">0 / 65.536 caracteres</span>
+        <span id="limFoto" hidden=""></span>
+        <select id="limTipo" aria-label="Tipo de envío" hidden="">
+          <option value="1024">con foto (1.024)</option>
+          <option value="4096">mensaje suelto (4.096)</option>
+        </select>
+        <button id="bAjustar" class="btn-pencil" hidden="">Ajustar con IA</button>
+      </div>
+
+      <div class="legend">
+        <p>Los textuales detectados quedan subrayados en rojo en el editor. Podés sumarles negrita encima: sale <code>*_así_*</code>.</p>
+        <p id="legendaFormato">WhatsApp lee <code>*negrita*</code>, <code>_cursiva_</code>, <code>~tachado~</code>, viñetas <code>- </code>, numeradas <code>1. </code> (hasta 99) y citas <code>&gt; </code>.</p>
+        <p>Los enlaces van pegados como URL cruda: WhatsApp los convierte solo. No acepta texto anclado, y acá quedan siempre sin marcadores para que no se corten.</p>
+        <p>Las fechas y horas las subraya el teléfono para ofrecer “crear evento”. Es automático y no depende del texto: el contador está para que sepas cuántas te va a marcar.</p>
+        <p>Los pines se resuelven con OpenStreetMap (Nominatim). El link abre Google Maps a la altura que corresponde: un país entero se ve entero, una esquina se ve con los nombres de las calles.</p>
+        <p id="aviso" style="display:none;color:var(--pencil);margin-top:8px"></p>
+      </div>
+    </section>
+
+  </div>
+  </section>
+
+  <section id="vistaX" hidden="">
+    <div class="cols">
+
+      <section class="pane pane-edit">
+        <div class="pane-head">
+          <span class="pane-title">Post</span>
+          <span class="x-ayuda">Seleccioná texto y aparecen las opciones sobre el cursor</span>
+          <button id="bTraerX" class="btn-quiet">Traer de WhatsApp</button>
+        </div>
+        <div id="editorX" contenteditable="true" spellcheck="true" role="textbox" aria-multiline="true" aria-label="Post para X"></div>
+        <div class="foot">
+          <span><b id="xNum">0</b> / <span id="xLim">280</span> caracteres<span id="xPeso"></span></span>
+          <select id="xTipo" aria-label="Tipo de cuenta">
+            <option value="280">cuenta gratis (280)</option>
+            <option value="25000">Premium (25.000)</option>
+          </select>
+        </div>
+      </section>
+
+      <section class="pane out-pane">
+        <div class="pane-head">
+          <p class="pane-title">Para pegar</p>
+          <button id="bCopyX" class="btn-pencil">Copiar para X</button>
+        </div>
+        <div class="chat x">
+          <div class="bubble">
+            <pre id="salidaX"></pre>
+          </div>
+        </div>
+        <div class="limite">
+          <button id="bCopyRico" class="btn-quiet">Copiar con formato enriquecido</button>
+          <span id="xAviso"></span>
+        </div>
+        <div class="legend">
+          <p><b>Copiar para X</b> convierte cada letra a su versión 𝗻𝗲𝗴𝗿𝗶𝘁𝗮 o 𝘪𝘵𝘢́𝘭𝘪𝘤𝘢 en Unicode. Es lo único que sobrevive al pegado: el editor de X descarta el formato del portapapeles y publica texto plano.</p>
+          <p>Los acentos y la ñ se arman con la letra base más la tilde, así que <b>Nación</b> sale entera en negrita. Cada letra convertida pesa doble para el contador de X, y los lectores de pantalla las leen mal: conviene usarlo en pocas palabras, no en el post entero.</p>
+          <p><b>Copiar con formato enriquecido</b> deja negrita y cursiva reales en el portapapeles. Sirve para pegar en Word, Docs o un mail; en X no se mantiene.</p>
+        </div>
+      </section>
+
+    </div>
+  </section>
+
+  <section id="vistaTapa" hidden="">
+    <div class="cols">
+
+      <!-- ------- foto de la tapa ------- -->
+      <section class="pane pane-edit">
+        <div class="pane-head">
+          <div class="tools">
+            <span class="pista">Subí la foto de la tapa y sale el posteo armado</span>
+            <span class="sep"></span>
+            <button id="bTapaElegir" class="btn-quiet">Elegir foto</button>
+            <button id="bTapaLimpiar" class="btn-quiet">Nueva tapa</button>
+          </div>
+        </div>
+
+        <div class="tapa-dz" id="tapaDz">
+          <b>Arrastrá la foto de la tapa acá</b>
+          o hacé clic para elegirla · también podés pegarla con Ctrl/⌘+V
+        </div>
+        <div class="tapa-lienzo" id="tapaLienzo" hidden="">
+          <img id="tapaPreview" alt="Tapa cargada">
+        </div>
+        <input type="file" id="tapaFile" accept="image/*" hidden="">
+
+        <div class="ia">
+          <input id="tapaKey" type="password" placeholder="sk-… tu API key de OpenAI" autocomplete="new-password" spellcheck="false" aria-label="API key de OpenAI">
+          <button id="bTapaVerKey" class="btn-quiet" type="button" aria-label="Mostrar u ocultar la key">ver</button>
+          <input id="tapaModelo" value="gpt-4o" aria-label="Modelo con visión">
+          <button id="bTapaLeer" class="btn-pencil" disabled="">Leer la tapa</button>
+        </div>
+        <p class="ia-nota" id="tapaEstado">Es la misma key que usás para reducir con IA: si ya la pegaste, aparece sola. Necesita un modelo con visión (gpt-4o).</p>
+      </section>
+
+      <!-- ------- salida ------- -->
+      <section class="pane out-pane">
+        <div class="pane-head">
+          <p class="pane-title">Para pegar</p>
+          <button id="bTapaCopy" class="btn-pencil">Copiar</button>
+        </div>
+
+        <div class="chat">
+          <div class="bubble">
+            <pre id="salidaTapa"></pre>
+            <div class="meta"><span id="tapaHora">19:05</span><span class="tick">✓✓</span></div>
+          </div>
+        </div>
+
+        <div class="limite">
+          <span id="tapaNum">0 caracteres</span>
+          <button id="bTapaEditor" class="btn-quiet">Pasar al editor</button>
+        </div>
+
+        <div class="legend">
+          <p>El texto sale con el formato de WhatsApp ya puesto: <code>*negrita*</code> con un asterisco, viñetas <code>•</code> y una línea vacía debajo de cada nota para pegar el link. Sin emojis.</p>
+          <p>Cada nota lleva de uno a tres bullets, según lo que dé la bajada: son oraciones completas, no telegramas, y ninguna repite lo que ya dice el título.</p>
+          <p>Quedan afuera las notas de la franja de arriba: son avances, no van. El orden es el de la jerarquía visual de la tapa.</p>
+          <p>La foto y la key van directo a OpenAI, sin pasar por ningún servidor propio. Si un dato de la tapa está borroso, el modelo lo omite en vez de aproximarlo: conviene revisar antes de mandar.</p>
+          <p><b>Pasar al editor</b> lleva el texto a la pestaña de WhatsApp para retocarlo con las herramientas de siempre.</p>
+        </div>
+      </section>
+
+    </div>
+  </section>
+
+  <div id="burbujaX" class="burbuja" hidden="">
+    <button data-cmd="bold" title="Negrita"><b>B</b></button>
+    <button data-cmd="italic" title="Cursiva"><i>I</i></button>
+    <button data-cmd="strikeThrough" title="Tachado"><s>S</s></button>
+    <span class="burbuja-sep"></span>
+    <button data-lista="vineta" title="Viñetas">•</button>
+    <button data-lista="numero" title="Lista numerada">1.</button>
+    <button data-lista="cita" data-solo="wa" title="Cita">&gt;</button>
+    <button data-titulo="1" data-solo="wa" title="Pasa la línea de MAYÚSCULAS a caja normal y la deja en negrita">Aa</button>
+    <span class="burbuja-sep"></span>
+    <button data-mono="1" title="Monoespaciado: alinea columnas">mono</button>
+    <button data-cmd="removeFormat" title="Quitar formato">limpiar</button>
+  </div>
+
+<script>
+(function(){
+  "use strict";
+
+  var arrancado = false;
+
+  function iniciar(){
+  if(arrancado) return;
+  var editor = document.getElementById('editor');
+  if(!editor){ window.addEventListener('load', iniciar); return; }
+  arrancado = true;
+
+  var salida  = document.getElementById('salida');
+  var nQuotes = document.getElementById('nQuotes');
+  var nChars  = document.getElementById('nChars');
+  var nLinks  = document.getElementById('nLinks');
+  var nFechas = document.getElementById('nFechas');
+  var aviso   = document.getElementById('aviso');
+
+  var BLOCK = {DIV:1,P:1,LI:1,H1:1,H2:1,H3:1,H4:1,H5:1,H6:1,BLOCKQUOTE:1,PRE:1,SECTION:1,ARTICLE:1,TR:1,UL:1,OL:1};
+
+  /* ---------- DOM -> modelo (un objeto por caracter) ---------- */
+  function firstElementIsBlock(el){
+    for(var i=0;i<el.childNodes.length;i++){
+      var n = el.childNodes[i];
+      if(n.nodeType===3 && n.nodeValue==='') continue;
+      return n.nodeType===1 && !!BLOCK[n.tagName];
+    }
+    return false;
+  }
+
+  var MOD_IDX = null; // índices del cursor tras la última lectura
+
+  function modelFromDom(root, marks){
+    var out = [];
+    var idx = marks ? marks.map(function(){ return null; }) : null;
+
+    function anotarTexto(node, base){
+      if(!marks) return;
+      for(var i=0;i<marks.length;i++){
+        if(idx[i] === null && marks[i].node === node){
+          idx[i] = base + Math.min(marks[i].offset, node.nodeValue.length);
+        }
+      }
+    }
+    function anotarElem(node, hijo){
+      if(!marks) return;
+      for(var i=0;i<marks.length;i++){
+        if(idx[i] === null && marks[i].node === node && marks[i].offset === hijo) idx[i] = out.length;
+      }
+    }
+
+    function walk(node, st){
+      if(node.nodeType === 3){
+        anotarTexto(node, out.length);
+        var t = node.nodeValue.replace(/\r/g,'');
+        for(var k=0;k<t.length;k++){
+          var ch = t[k] === '\u00a0' ? ' ' : t[k];
+          out.push({ch:ch, b:st.b, i:st.i, s:st.s, a:st.a, m:st.m});
+        }
+        return;
+      }
+      if(node.nodeType !== 1) return;
+      var tag = node.tagName;
+      if(tag === 'BR'){ out.push({ch:'\n',b:false,i:false,s:false,a:false}); return; }
+
+      var st2 = {b:st.b, i:st.i, s:st.s, a:st.a, m:st.m};
+      if(tag==='B'||tag==='STRONG') st2.b = true;
+      if(tag==='I'||tag==='EM') st2.i = true;
+      if(tag==='S'||tag==='STRIKE'||tag==='DEL') st2.s = true;
+      if(tag==='CODE'||tag==='PRE'||tag==='TT'||tag==='SAMP'||tag==='KBD') st2.m = true;
+      var cs = node.style;
+      if(cs){
+        if(cs.fontWeight === 'bold' || parseInt(cs.fontWeight,10) >= 600) st2.b = true;
+        if(cs.fontStyle === 'italic') st2.i = true;
+        if((cs.textDecoration||'').indexOf('line-through') > -1) st2.s = true;
+      }
+      if(node.classList && node.classList.contains('auto')) st2.a = true;
+
+      if(BLOCK[tag] && out.length && !firstElementIsBlock(node)){
+        out.push({ch:'\n',b:false,i:false,s:false,a:false});
+      }
+
+      var kids = node.childNodes;
+      for(var j=0;j<kids.length;j++){
+        anotarElem(node, j);
+        // <br> de relleno al final de un bloque: no cuenta como salto
+        if(kids[j].nodeName === 'BR' && j === kids.length-1 && BLOCK[tag]) continue;
+        walk(kids[j], st2);
+      }
+      anotarElem(node, kids.length);
+    }
+
+    var top = root.childNodes;
+    for(var i=0;i<top.length;i++){ anotarElem(root, i); walk(top[i], {b:false,i:false,s:false,a:false,m:false}); }
+    anotarElem(root, top.length);
+    while(out.length && out[out.length-1].ch === '\n') out.pop();
+
+    if(idx){
+      for(var q=0;q<idx.length;q++){
+        if(idx[q] === null || idx[q] > out.length) idx[q] = out.length;
+      }
+    }
+    MOD_IDX = idx;
+    return out;
+  }
+
+  /* ---------- posiciones y selección ---------- */
+  function textoLinea(linea){
+    return linea.map(function(c){ return c.ch; }).join('');
+  }
+  function posDeIndice(lineas, idx){
+    var acc = 0;
+    for(var l=0;l<lineas.length;l++){
+      if(idx <= acc + lineas[l].length) return {line:l, col:idx - acc};
+      acc += lineas[l].length + 1;
+    }
+    var last = lineas.length - 1;
+    return {line:last, col:lineas[last].length};
+  }
+  function indiceDePos(lineas, line, col){
+    var acc = 0;
+    for(var l=0;l<line;l++) acc += lineas[l].length + 1;
+    return acc + col;
+  }
+  function unirLineas(lineas){
+    var out = [];
+    for(var l=0;l<lineas.length;l++){
+      if(l) out.push({ch:'\n',b:false,i:false,s:false,a:false});
+      out = out.concat(lineas[l]);
+    }
+    return out;
+  }
+  function charsDe(str){
+    return str.split('').map(function(c){ return {ch:c,b:false,i:false,s:false,a:false}; });
+  }
+
+  function leerModelo(el){
+    el = el || editor;
+    var marks = null;
+    var sel = window.getSelection();
+    if(sel && sel.rangeCount){
+      var r = sel.getRangeAt(0);
+      if(el.contains(r.startContainer) && el.contains(r.endContainer)){
+        marks = [{node:r.startContainer, offset:r.startOffset},
+                 {node:r.endContainer,   offset:r.endOffset}];
+      }
+    }
+    var model = modelFromDom(el, marks);
+    var idx = MOD_IDX;
+    return {model:model, ini: idx ? idx[0] : 0, fin: idx ? idx[1] : 0};
+  }
+
+  function nodoEn(pos, el){
+    var div = (el || editor).children[pos.line];
+    if(!div) return null;
+    var n = 0, res = null;
+    (function w(node){
+      if(res) return;
+      if(node.nodeType === 3){
+        if(n + node.nodeValue.length >= pos.col){ res = {node:node, off: pos.col - n}; return; }
+        n += node.nodeValue.length; return;
+      }
+      for(var i=0;i<node.childNodes.length;i++) w(node.childNodes[i]);
+    })(div);
+    return res || {node:div, off:0};
+  }
+
+  function ponerSeleccion(model, a, b, el){
+    var lineas = toLines(model);
+    var p1 = nodoEn(posDeIndice(lineas, a), el);
+    var p2 = nodoEn(posDeIndice(lineas, b), el);
+    if(!p1 || !p2) return;
+    try{
+      var r = document.createRange();
+      r.setStart(p1.node, p1.off);
+      r.setEnd(p2.node, p2.off);
+      var sel = window.getSelection();
+      sel.removeAllRanges(); sel.addRange(r);
+    }catch(e){}
+  }
+
+  function toLines(model){
+    var lines = [], cur = [];
+    for(var i=0;i<model.length;i++){
+      if(model[i].ch === '\n'){ lines.push(cur); cur = []; }
+      else cur.push(model[i]);
+    }
+    lines.push(cur);
+    return lines;
+  }
+
+  /* ---------- modelo -> HTML del editor ---------- */
+  function esc(s, primero, ultimo){
+    s = s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+         .replace(/ {2}/g,'&nbsp; ');
+    if(primero) s = s.replace(/^ /,'&nbsp;');
+    if(ultimo)  s = s.replace(/ $/,'&nbsp;');
+    return s;
+  }
+  function keyHtml(c){ return (c.b?'b':'')+(c.i?'i':'')+(c.s?'s':'')+(c.a?'a':'')+(c.m?'m':''); }
+  function keyWa(c){ return (c.b?'b':'')+(c.i?'i':'')+(c.s?'s':'')+(c.m?'m':''); }
+
+  function domFromModel(model){
+    return toLines(model).map(function(line){
+      if(!line.length) return '<div><br></div>';
+      var html = '', i = 0;
+      while(i < line.length){
+        var k = keyHtml(line[i]), txt = '', st = line[i], desde = i;
+        while(i < line.length && keyHtml(line[i]) === k){ txt += line[i].ch; i++; }
+        var frag = esc(txt, desde === 0, i === line.length);
+        if(st.m) frag = '<code>'+frag+'</code>';
+        if(st.s) frag = '<s>'+frag+'</s>';
+        if(st.i) frag = '<i'+(st.a?' class="auto"':'')+'>'+frag+'</i>';
+        if(st.b) frag = '<b>'+frag+'</b>';
+        html += frag;
+      }
+      return '<div>'+html+'</div>';
+    }).join('');
+  }
+
+  /* ---------- modelo -> markup de WhatsApp ---------- */
+  var FORMATOS = {
+    wa: {b:'*',  i:'_',  s:'~'},
+    tg: {b:'**', i:'__', s:'~~'}
+  };
+  var formato = 'wa';
+
+  function marcar(txt, st, mk){
+    if(!st.b && !st.i && !st.s && !st.m) return txt;
+    var m = txt.match(/^(\s*)([\s\S]*?)(\s*)$/);
+    var lead = m[1], core = m[2], trail = m[3];
+    if(!core) return txt;
+    // dentro del monoespaciado no se aplican los otros marcadores
+    if(st.m) return lead + '```' + core + '```' + trail;
+    if(st.s) core = mk.s + core + mk.s;
+    if(st.i) core = mk.i + core + mk.i;
+    if(st.b) core = mk.b + core + mk.b;
+    return lead + core + trail;
+  }
+
+  /* ---------- fechas: detección, parseo y agenda ---------- */
+  var MESES = '(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)';
+  var DIAS = '(?:lunes|martes|mi[ée]rcoles|jueves|viernes|s[áa]bados?|domingos?)';
+  var RX_FECHA = new RegExp(
+    '\\b\\d{1,2}\\/\\d{1,2}(?:\\/\\d{2,4})?\\b' +                       // 12/8 · 12/08/2026
+    '|\\b\\d{1,2}[-.]\\d{1,2}[-.]\\d{2,4}\\b' +                          // 12-8-2026 · 12.08.26
+    '|\\b\\d{1,2}\\s+de\\s+' + MESES + '(?:\\s+de\\s+\\d{4})?\\b' +      // 3 de agosto de 2026
+    '|\\b' + DIAS + '(?:\\s+\\d{1,2}(?![\\/.\\d-])(?:\\s+de\\s+' + MESES + ')?)?\\b' +
+    '|\\b\\d{1,2}:\\d{2}\\b' +                                           // 10:30
+    '|\\b\\d{1,2}[.]\\d{2}\\s*(?:h|hs|horas)\\b' +                       // 20.30 hs
+    '|\\b\\d{1,2}\\s*(?:hs|horas)\\b' +                                  // 20 hs
+    '|\\ba\\s+las\\s+\\d{1,2}(?:[:.]\\d{2})?\\b' +                       // a las 20
+    '|\\b(?:hoy|mañana|pasado mañana|esta noche|esta tarde|este fin de semana)\\b'
+  , 'gi');
+
+  var MESNUM = {enero:0,febrero:1,marzo:2,abril:3,mayo:4,junio:5,julio:6,agosto:7,septiembre:8,setiembre:8,octubre:9,noviembre:10,diciembre:11};
+  var DIANUM = {domingo:0,lunes:1,'miércoles':3,miercoles:3,martes:2,jueves:4,viernes:5,'sábado':6,sabado:6};
+
+  function fechasDe(texto){
+    var res = [], m;
+    RX_FECHA.lastIndex = 0;
+    while((m = RX_FECHA.exec(texto)) !== null){
+      res.push({t: m[0].trim().replace(/\s+/g,' '), i: m.index});
+    }
+    return res;
+  }
+
+  function hoyCero(){
+    var d = new Date(); d.setHours(0,0,0,0); return d;
+  }
+  function acomodarAnio(d){
+    // sin año explícito: si ya pasó hace más de dos días, es del año que viene
+    var hoy = hoyCero();
+    if(d.getTime() < hoy.getTime() - 2*86400000) d.setFullYear(d.getFullYear() + 1);
+    return d;
+  }
+  function normalizar(s){
+    return s.toLowerCase().replace(/á/g,'á');
+  }
+
+  // devuelve un Date a medianoche, o null si el texto es solo una hora
+  function parseFecha(txt){
+    var t = normalizar(txt), m;
+    var hoy = hoyCero();
+
+    if(/^hoy$/.test(t) || /^esta (noche|tarde)$/.test(t)) return new Date(hoy);
+    if(/^mañana$/.test(t)){ var d1 = new Date(hoy); d1.setDate(d1.getDate()+1); return d1; }
+    if(/^pasado mañana$/.test(t)){ var d2 = new Date(hoy); d2.setDate(d2.getDate()+2); return d2; }
+    if(/^este fin de semana$/.test(t)){
+      var d3 = new Date(hoy);
+      d3.setDate(d3.getDate() + ((6 - d3.getDay() + 7) % 7 || 7));
+      return d3;
+    }
+
+    m = t.match(/^(\d{1,2})[\/](\d{1,2})(?:[\/](\d{2,4}))?$/) || t.match(/^(\d{1,2})[-.](\d{1,2})[-.](\d{2,4})$/);
+    if(m){
+      var anio = m[3] ? parseInt(m[3],10) : new Date().getFullYear();
+      if(anio < 100) anio += 2000;
+      var f = new Date(anio, parseInt(m[2],10)-1, parseInt(m[1],10));
+      return m[3] ? f : acomodarAnio(f);
+    }
+
+    m = t.match(/(\d{1,2})\s+de\s+([a-záéíóú]+)(?:\s+de\s+(\d{4}))?/);
+    if(m && MESNUM[m[2]] !== undefined){
+      var f2 = new Date(m[3] ? parseInt(m[3],10) : new Date().getFullYear(), MESNUM[m[2]], parseInt(m[1],10));
+      return m[3] ? f2 : acomodarAnio(f2);
+    }
+
+    m = t.match(/^([a-záéíóú]+)(?:\s+(\d{1,2}))?$/);
+    if(m && DIANUM[m[1]] !== undefined){
+      var d4 = new Date(hoy);
+      var delta = (DIANUM[m[1]] - d4.getDay() + 7) % 7;
+      d4.setDate(d4.getDate() + (delta || 7));   // el próximo, nunca hoy
+      if(m[2]){ d4.setDate(parseInt(m[2],10)); return acomodarAnio(d4); }
+      return d4;
+    }
+    return null;
+  }
+
+  function parseHora(txt){
+    var t = normalizar(txt), m;
+    if(/^esta noche$/.test(t)) return {h:20, m:0};
+    if(/^esta tarde$/.test(t)) return {h:16, m:0};
+    m = t.match(/^a\s+las\s+(\d{1,2})(?:[:.](\d{2}))?$/);
+    if(m) return {h:parseInt(m[1],10), m:m[2] ? parseInt(m[2],10) : 0};
+    m = t.match(/^(\d{1,2}):(\d{2})$/);
+    if(m) return {h:parseInt(m[1],10), m:parseInt(m[2],10)};
+    m = t.match(/^(\d{1,2})[.](\d{2})\s*(?:h|hs|horas)$/);
+    if(m) return {h:parseInt(m[1],10), m:parseInt(m[2],10)};
+    m = t.match(/^(\d{1,2})\s*(?:hs|horas)$/);
+    if(m) return {h:parseInt(m[1],10), m:0};
+    return null;
+  }
+
+  // arma eventos: junta cada hora con la fecha más cercana del texto
+  function eventosDe(texto){
+    var crudas = fechasDe(texto);
+    var fechas = [], horas = [];
+    crudas.forEach(function(c){
+      var f = parseFecha(c.t);
+      var h = parseHora(c.t);
+      if(f) fechas.push({t:c.t, i:c.i, fecha:f, hora: (/^esta (noche|tarde)$/.test(normalizar(c.t)) ? h : null)});
+      else if(h) horas.push({t:c.t, i:c.i, hora:h});
+    });
+
+    horas.forEach(function(h){
+      var mejor = null, dist = 121;
+      fechas.forEach(function(f){
+        if(f.hora) return;
+        var d = Math.abs(f.i - h.i);
+        if(d < dist){ dist = d; mejor = f; }
+      });
+      if(mejor){ mejor.hora = h.hora; mejor.tHora = h.t; }
+      else {
+        var hoy = hoyCero();
+        fechas.push({t:h.t, i:h.i, fecha:hoy, hora:h.hora, soloHora:true});
+      }
+    });
+
+    var conHora = {};
+    fechas.forEach(function(f){ if(f.hora) conHora[fmtDia(f.fecha)] = true; });
+
+    var vistos = {}, res = [];
+    fechas.forEach(function(f){
+      if(!f.hora && conHora[fmtDia(f.fecha)]) return;   // ya hay un evento con horario ese día
+      var inicio = new Date(f.fecha);
+      if(f.hora) inicio.setHours(f.hora.h, f.hora.m, 0, 0);
+      var clave = inicio.getTime() + (f.hora ? 'h' : 'd');
+      if(vistos[clave]) return;
+      vistos[clave] = true;
+      res.push({
+        clave: clave,
+        i: f.i,
+        tFecha: f.t,
+        tHora: f.tHora || null,
+        etiqueta: f.t + (f.tHora ? ' · ' + f.tHora : ''),
+        inicio: inicio,
+        todoElDia: !f.hora
+      });
+    });
+    return res;
+  }
+
+  function dosDig(n){ return n < 10 ? '0' + n : '' + n; }
+  function fmtDia(d){ return d.getFullYear() + dosDig(d.getMonth()+1) + dosDig(d.getDate()); }
+  function fmtMin(d){ return fmtDia(d) + 'T' + dosDig(d.getHours()) + dosDig(d.getMinutes()) + '00'; }
+
+  function tituloPorDefecto(){
+    var lineas = toLines(modelFromDom(editor));
+    var l = lineas.length ? textoLinea(lineas[0]).trim().replace(/\s+/g,' ') : '';
+    if(!l) return 'Evento';
+    if(l.length <= 60) return l;
+    var corto = l.slice(0, 60);
+    var esp = corto.lastIndexOf(' ');
+    return (esp > 30 ? corto.slice(0, esp) : corto) + '…';
+  }
+
+  function urlCalendar(ev, titulo){
+    var rango;
+    if(ev.todoElDia){
+      var fin = new Date(ev.inicio.getTime() + 86400000);
+      rango = fmtDia(ev.inicio) + '/' + fmtDia(fin);
+    } else {
+      var fin2 = new Date(ev.inicio.getTime() + 3600000);
+      rango = fmtMin(ev.inicio) + '/' + fmtMin(fin2);
+    }
+    var u = 'https://calendar.google.com/calendar/render?action=TEMPLATE' +
+            '&text=' + encodeURIComponent(titulo || tituloPorDefecto()) +
+            '&dates=' + rango;
+    try{
+      var tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if(!ev.todoElDia && tz) u += '&ctz=' + encodeURIComponent(tz);
+    }catch(e){}
+    return u;
+  }
+
+  function comoSeLee(ev){
+    var dias = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+    var meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+    var d = ev.inicio;
+    var s = dias[d.getDay()] + ' ' + d.getDate() + ' de ' + meses[d.getMonth()] + ' de ' + d.getFullYear();
+    if(!ev.todoElDia) s += ', ' + d.getHours() + ':' + dosDig(d.getMinutes());
+    return s;
+  }
+
+  /* --- nombre del evento inferido del texto --- */
+  var CONECT = /^(?:y|e|o|u|que|pero|tambi[ée]n|adem[áa]s|mientras|cuando|donde|as[íi]|entonces|luego|ya|en|de|del|al|a|por|para|con|sin)\s+/i;
+  var COLA   = /\s+(?:y|e|o|u|que|el|la|los|las|un|una|en|de|del|al|a|desde|hasta|para|por|con|sin|su|sus)$/i;
+
+  function limpiarBordes(s){
+    s = s.replace(/[\u{1F300}-\u{1FAFF}\u2600-\u27BF]/gu, ' ').replace(/\s+/g,' ');
+    s = s.replace(/^[\s,;:.\-–—"'«»(]+/,'').replace(/[\s,;:.\-–—"'«»)]+$/,'');
+    var antes;
+    do { antes = s; s = s.replace(CONECT,''); } while(s !== antes);
+    do { antes = s; s = s.replace(COLA,''); } while(s !== antes);
+    return s.trim();
+  }
+
+  function acortar(s, max){
+    if(s.length <= max) return s;
+    var corto = s.slice(0, max), esp = corto.lastIndexOf(' ');
+    return (esp > max * 0.5 ? corto.slice(0, esp) : corto) + '…';
+  }
+
+  function sinFecha(s, ev){
+    [ev.tFecha, ev.tHora].forEach(function(f){
+      if(!f) return;
+      // me llevo también el "el", "desde el", "a las" que quedaba colgando
+      var rx = new RegExp('(?:\\b(?:el|la|del|al|desde|hasta|para|por|entre|a)\\s+)?' + escapeRx(f), 'gi');
+      s = s.replace(rx, ' ');
+    });
+    return s.replace(/\s+([,;:])/g, '$1').replace(/,\s*,/g, ',').replace(/\s+/g, ' ');
+  }
+
+  function mayusInicial(s){
+    return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+  }
+
+  function inferirTitulo(ev, texto){
+    var lineas = texto.split('\n').filter(function(l){ return l.trim(); });
+    var cands = [];
+
+    // en una nota, la primera línea es el título: ese es el nombre del evento
+    if(lineas.length > 1 && lineas[0].length <= 90) cands.push(lineas[0]);
+    // si no sirve, la oración donde aparece la fecha
+    var cuerpo = lineas.length > 1 ? lineas.slice(1).join('\n') : (lineas[0] || '');
+    cuerpo.split(/[\n.!?]+/).forEach(function(o){
+      if(o.indexOf(ev.tFecha) > -1) cands.push(o);
+    });
+    if(lineas[0]) cands.push(lineas[0]);
+
+    for(var i=0;i<cands.length;i++){
+      var t = limpiarBordes(sinFecha(cands[i], ev));
+      if(t.length >= 12) return mayusInicial(acortar(t, 60));
+    }
+    return 'Evento';
+  }
+
+  /* --- lista de fechas: el editor elige cuáles agendar --- */
+  var fechasLista = document.getElementById('fechasLista');
+  var bFecIns     = document.getElementById('bFecIns');
+  var fecRotulo   = document.getElementById('fecRotulo');
+  var ROTULO_BASE = fecRotulo.textContent;
+  var fecItems    = {};
+  var fecOrden    = [];
+  var fecFirma    = null;
+
+  function contarFechas(){
+    var n = 0;
+    fecOrden.forEach(function(k){ if(fecItems[k].marcado) n++; });
+    bFecIns.textContent = (formato === 'tg' ? 'Agendar 🔔 + link (' : 'Marcar con 🔔 (') + n + ')';
+    bFecIns.disabled = n === 0;
+  }
+
+  function dibujarFechas(){
+    fechasLista.textContent = '';
+    if(!fecOrden.length){
+      var p = document.createElement('p');
+      p.className = 'loc-vacio';
+      p.textContent = 'Sin fechas ni horarios detectados.';
+      fechasLista.appendChild(p);
+      contarFechas();
+      return;
+    }
+    fecOrden.forEach(function(k){
+      var it = fecItems[k];
+      var fila = document.createElement('div');
+      fila.className = 'loc-row fec-row' + (it.marcado ? ' elegida' : '');
+
+      var chk = document.createElement('input');
+      chk.type = 'checkbox';
+      chk.checked = !!it.marcado;
+      chk.setAttribute('aria-label', 'Agendar ' + it.ev.etiqueta);
+
+      var tit = document.createElement('input');
+      tit.className = 'loc-tit';
+      tit.placeholder = 'Nombre del evento';
+      tit.value = it.titulo;
+      tit.addEventListener('input', function(){
+        it.titulo = tit.value;
+        it.propio = true;              // a partir de acá manda el editor
+        cal.href = urlCalendar(it.ev, it.titulo);
+      });
+
+      var txt = document.createElement('span');
+      txt.className = 'fec-nom';
+      txt.textContent = it.ev.etiqueta;
+      txt.title = comoSeLee(it.ev);
+
+      var cal = document.createElement('a');
+      cal.className = 'loc-pin';
+      cal.target = '_blank';
+      cal.rel = 'noopener';
+      cal.href = urlCalendar(it.ev, it.titulo);
+      cal.textContent = it.soloTitulo ? 'solo en el título' : (it.agendado ? 'avisada \u2713' : comoSeLee(it.ev));
+
+      function togglear(v){
+        it.marcado = v;
+        chk.checked = v;
+        fila.classList.toggle('elegida', v);
+        contarFechas();
+      }
+      chk.addEventListener('change', function(){ togglear(chk.checked); });
+      fila.addEventListener('click', function(ev){
+        if(ev.target === tit || ev.target === cal || ev.target === chk) return;
+        togglear(!it.marcado);
+      });
+
+      it.el = {tit: tit, cal: cal};
+      fila.appendChild(chk); fila.appendChild(tit); fila.appendChild(txt); fila.appendChild(cal);
+      fechasLista.appendChild(fila);
+    });
+    contarFechas();
+  }
+
+  function pintarFechas(texto){
+    var evs = eventosDe(texto);
+    var firma = evs.map(function(e){ return e.clave; }).join('|');
+    if(firma === fecFirma){
+      // mismas fechas, pero pueden haberse corrido de lugar al editar
+      evs.forEach(function(e){
+        var it = fecItems[e.clave];
+        if(!it) return;
+        it.ev = e;
+        if(!it.propio){
+          var nuevo = inferirTitulo(e, texto);
+          if(nuevo !== it.titulo){ it.titulo = nuevo; if(it.el && it.el.tit) it.el.tit.value = nuevo; }
+        }
+      });
+      return;
+    }
+    fecFirma = firma;
+    var nuevos = {}, orden = [];
+    evs.forEach(function(e){
+      var previoItem = fecItems[e.clave];
+      nuevos[e.clave] = previoItem ? {ev:e, titulo:previoItem.titulo, marcado:previoItem.marcado, agendado:previoItem.agendado, soloTitulo:previoItem.soloTitulo, propio:previoItem.propio}
+                                   : {ev:e, titulo:inferirTitulo(e, texto), marcado:false, agendado:false, soloTitulo:false, propio:false};
+      if(!nuevos[e.clave].propio) nuevos[e.clave].titulo = inferirTitulo(e, texto);
+      orden.push(e.clave);
+    });
+    fecItems = nuevos;
+    fecOrden = orden;
+    dibujarFechas();
+  }
+
+  var AVISO = ' 🔔';
+
+  // Telegram no hace tocables las fechas: hay que darle el link de Google Calendar
+  function bloqueAgenda(model, elegidas){
+    var corte = puntoDeInsercion(model);
+    var alFinal = corte >= model.length;
+    var bloque = [];
+    function linea(txt, negrita){
+      for(var k=0;k<txt.length;k++) bloque.push({ch:txt.charAt(k), b:!!negrita, i:false, s:false, a:false});
+    }
+    function salto(){ bloque.push({ch:'\n',b:false,i:false,s:false,a:false}); }
+
+    if(model.length){ salto(); if(alFinal) salto(); }
+    linea('Agenda', true);
+    elegidas.forEach(function(k, idx){
+      var it = fecItems[k];
+      salto();
+      if(idx) salto();
+      if(it.titulo){ linea(it.titulo, true); salto(); }
+      linea('🔔 ' + comoSeLee(it.ev), false); salto();
+      linea(urlCalendar(it.ev, it.titulo), false);
+    });
+    if(!alFinal){ salto(); salto(); }
+    return model.slice(0, corte).concat(bloque, model.slice(corte));
+  }
+
+  function agendarFechas(){
+    var elegidas = fecOrden.filter(function(k){ return fecItems[k].marcado; });
+    if(!elegidas.length) return;
+
+    var model = modelFromDom(editor);
+    var puestos = 0, soloTitulo = 0;
+
+    // de atrás para adelante, así los índices anteriores no se corren
+    var orden = elegidas.map(function(k){ return {k:k, i:fecItems[k].ev.i}; })
+                        .sort(function(a,b){ return b.i - a.i; });
+
+    orden.forEach(function(p){
+      var it = fecItems[p.k], ev = it.ev;
+      var texto = model.map(function(c){ return c.ch; }).join('');
+
+      // el aviso va en el cuerpo, nunca en el título
+      var corte = texto.indexOf('\n');
+      var desde = (corte === -1) ? 0 : corte + 1;
+      var pos = texto.indexOf(ev.tFecha, desde);
+      if(pos === -1){ it.soloTitulo = true; it.marcado = false; soloTitulo++; return; }
+      it.soloTitulo = false;
+
+      var fin = pos + ev.tFecha.length;
+      if(ev.tHora){                       // si la hora viene pegada, el aviso va después
+        var ph = texto.indexOf(ev.tHora, fin);
+        if(ph > -1 && ph - fin <= 20) fin = ph + ev.tHora.length;
+      }
+      if(texto.slice(fin, fin + AVISO.length) === AVISO){ it.marcado = false; it.agendado = true; return; }
+
+      var estilo = model[fin - 1] || {b:false, i:false, s:false};
+      var trozo = [];
+      for(var q=0;q<AVISO.length;q++){
+        trozo.push({ch:AVISO.charAt(q), b:!!estilo.b, i:!!estilo.i, s:!!estilo.s, a:false});
+      }
+      model = model.slice(0, fin).concat(trozo, model.slice(fin));
+      it.marcado = false;
+      it.agendado = true;
+      puestos++;
+    });
+
+    if(formato === 'tg') model = bloqueAgenda(model, elegidas);
+
+    fecRotulo.textContent = soloTitulo
+      ? soloTitulo + (soloTitulo === 1 ? ' fecha quedó sin campanita: solo aparece en el título' :
+                                         ' fechas quedaron sin campanita: solo aparecen en el título')
+      : ROTULO_BASE;
+    fecRotulo.className = 'fec-rotulo' + (soloTitulo ? ' alerta' : '');
+
+    editor.innerHTML = domFromModel(model);
+    ponerSeleccion(model, model.length, model.length);
+    fecFirma = null;
+    sync();
+    dibujarFechas();
+  }
+
+  bFecIns.addEventListener('click', agendarFechas);
+
+  /* ---------- enlaces ---------- */
+  var RX_URL = /(?:https?:\/\/|www\.)[^\s]+/gi;
+  var CIERRES = '.,;:!?)]}»"\u201D\'';
+
+  function urlsDe(texto, crudo){
+    var res = [], m;
+    RX_URL.lastIndex = 0;
+    while((m = RX_URL.exec(texto)) !== null){
+      var fin = m.index + m[0].length;
+      if(!crudo){ // para contar, saco la puntuación de cierre
+        while(fin > m.index && CIERRES.indexOf(texto.charAt(fin-1)) > -1) fin--;
+      }
+      res.push([m.index, fin]);
+    }
+    return res;
+  }
+
+  // tramos que nunca llevan marcadores: prefijo de lista y URLs (con su puntuación pegada)
+  function tramosLimpios(texto){
+    var r = [];
+    var mp = RX_PREF.exec(texto);
+    if(mp) r.push([0, mp[0].length]);
+    return r.concat(urlsDe(texto, true));
+  }
+  function enTramo(tramos, k){
+    for(var i=0;i<tramos.length;i++) if(k >= tramos[i][0] && k < tramos[i][1]) return true;
+    return false;
+  }
+
+  function waFromModel(model, fmt){
+    var mk = FORMATOS[fmt || formato];
+
+    var lineas = toLines(model).map(function(line){
+      // una línea entera en monoespaciado se agrupa después en un solo bloque
+      var soloMono = line.length > 0 && line.every(function(c){ return c.m; });
+      if(soloMono) return {t: textoLinea(line), mono: true};
+
+      // el "- ", "1. ", "> " y las URLs tienen que quedar limpios
+      var tramos = tramosLimpios(textoLinea(line));
+      if(tramos.length){
+        line = line.map(function(c, k){
+          return enTramo(tramos, k) ? {ch:c.ch,b:false,i:false,s:false,a:c.a,m:c.m} : c;
+        });
+      }
+      var out = '', i = 0;
+      while(i < line.length){
+        var k = keyWa(line[i]), txt = '', st = line[i];
+        while(i < line.length && keyWa(line[i]) === k){ txt += line[i].ch; i++; }
+        out += marcar(txt, st, mk);
+      }
+      return {t: out.replace(/[ \t]+$/,''), mono: false};
+    });
+
+    var res = [], i = 0;
+    while(i < lineas.length){
+      if(lineas[i].mono){
+        var grupo = [];
+        while(i < lineas.length && lineas[i].mono){ grupo.push(lineas[i].t); i++; }
+        res.push('```\n' + grupo.join('\n') + '\n```');
+      } else {
+        res.push(lineas[i].t); i++;
+      }
+    }
+    return res.join('\n').replace(/\n{4,}/g,'\n\n');
+  }
+
+  /* ---------- listas y citas (prefijos de línea) ---------- */
+  var RX_PREF = /^(\s*)((?:[-*\u2022\u2023]|\d{1,2}\.|>)\s+)/;
+
+  function tipoDePrefijo(txt){
+    var m = RX_PREF.exec(txt);
+    if(!m) return null;
+    var p = m[2].charAt(0);
+    if(p === '-' || p === '*' || p === '\u2022' || p === '\u2023') return 'vineta';
+    if(p === '>') return 'cita';
+    return 'numero';
+  }
+
+  function textoDePrefijo(tipo, n, bala){
+    if(tipo === 'vineta') return bala || '- ';
+    if(tipo === 'cita')   return '> ';
+    return n + '. ';
+  }
+
+  function togglePrefijo(tipo, opts){
+    opts = opts || {};
+    var el = opts.el || editor;
+    var bala = opts.bala || '- ';
+    var alTerminar = opts.sync || sync;
+    var st = leerModelo(el);   // leer antes de tocar el foco
+    el.focus();
+    var lineas = toLines(st.model);
+    var a = Math.min(st.ini, st.fin), b = Math.max(st.ini, st.fin);
+    var l1 = posDeIndice(lineas, a).line, l2 = posDeIndice(lineas, b).line;
+
+    var quitar = true, hayContenido = false, l, t;
+    for(l = l1; l <= l2; l++){
+      t = textoLinea(lineas[l]);
+      if(!t.trim()) continue;
+      hayContenido = true;
+      if(tipoDePrefijo(t) !== tipo) quitar = false;
+    }
+    if(!hayContenido) quitar = false;
+
+    var n = 1;
+    for(l = l1; l <= l2; l++){
+      var linea = lineas[l];
+      t = textoLinea(linea);
+      if(!t.trim() && l1 !== l2) continue;
+      var m = RX_PREF.exec(t);
+      if(m) linea = linea.slice(0, m[1].length).concat(linea.slice(m[0].length));
+      if(!quitar){
+        linea = charsDe(textoDePrefijo(tipo, n, bala)).concat(linea);
+        n++;
+      }
+      lineas[l] = linea;
+    }
+
+    var nuevo = unirLineas(lineas);
+    var caret = indiceDePos(lineas, l2, lineas[l2].length);
+    el.innerHTML = domFromModel(nuevo);
+    ponerSeleccion(nuevo, caret, caret, el);
+    alTerminar();
+  }
+
+  // Enter continúa la lista; Enter en un ítem vacío la corta.
+  function continuarLista(ev, opts){
+    opts = opts || {};
+    var el = opts.el || editor;
+    var bala = opts.bala || '- ';
+    var alTerminar = opts.sync || sync;
+    var st = leerModelo(el);
+    if(st.ini !== st.fin) return false;
+    var lineas = toLines(st.model);
+    var pos = posDeIndice(lineas, st.ini);
+    var t = textoLinea(lineas[pos.line]);
+    var m = RX_PREF.exec(t);
+    if(!m || pos.col < m[0].length) return false;
+    ev.preventDefault();
+
+    var tipo = tipoDePrefijo(t), caret, nuevo;
+    if(t.length === m[0].length){            // ítem vacío: salir de la lista
+      lineas[pos.line] = lineas[pos.line].slice(m[0].length);
+      nuevo = unirLineas(lineas);
+      caret = indiceDePos(lineas, pos.line, 0);
+    } else {                                 // seguir numerando
+      var num = tipo === 'numero' ? parseInt(m[2], 10) + 1 : 0;
+      var resto = lineas[pos.line].slice(pos.col);
+      var pre = charsDe(textoDePrefijo(tipo, num, bala));
+      lineas[pos.line] = lineas[pos.line].slice(0, pos.col);
+      lineas.splice(pos.line + 1, 0, pre.concat(resto));
+      nuevo = unirLineas(lineas);
+      caret = indiceDePos(lineas, pos.line + 1, pre.length);
+    }
+    el.innerHTML = domFromModel(nuevo);
+    ponerSeleccion(nuevo, caret, caret, el);
+    alTerminar();
+    return true;
+  }
+
+  // dos o más líneas seguidas con columnas alineadas son una tabla:
+  // sin monoespaciado los espacios no alinean nada
+  function detectarTablas(){
+    var st = leerModelo();
+    var lineas = toLines(st.model);
+    var esTabla = lineas.map(function(l){ return /\S {3,}\S/.test(textoLinea(l)); });
+    var cambio = false;
+
+    for(var i=0;i<lineas.length;i++){
+      if(!esTabla[i]) continue;
+      if(!esTabla[i-1] && !esTabla[i+1]) continue;   // una sola línea no es tabla
+      lineas[i].forEach(function(c){ if(!c.m){ c.m = true; cambio = true; } });
+    }
+    if(!cambio) return false;
+
+    var nuevo = unirLineas(lineas);
+    editor.innerHTML = domFromModel(nuevo);
+    sync();
+    return true;
+  }
+
+  /* ---------- detección de textuales ---------- */
+  var RX_TEXTUAL = /\u201C[^\u201D\n]{1,600}\u201D|\u00AB[^\u00BB\n]{1,600}\u00BB|"[^"\n]{1,600}"/g;
+
+  function detectar(){
+    var st = leerModelo();
+    var model = st.model;
+    if(!model.length) return;
+    var texto = model.map(function(c){ return c.ch; }).join('');
+    var m, hubo = false;
+    RX_TEXTUAL.lastIndex = 0;
+    while((m = RX_TEXTUAL.exec(texto)) !== null){
+      for(var k = m.index; k < m.index + m[0].length; k++){
+        model[k].i = true; model[k].a = true;
+      }
+      hubo = true;
+    }
+    if(hubo){
+      editor.innerHTML = domFromModel(model);
+      ponerSeleccion(model, st.ini, st.fin);
+    }
+    sync();
+  }
+
+  // pasa a cita en bloque los textuales que ocupan su propia línea
+  function textualesACita(){
+    var st = leerModelo();
+    var lineas = toLines(st.model);
+    var cambios = 0;
+
+    lineas = lineas.map(function(linea){
+      var t = textoLinea(linea);
+      if(!t.trim() || RX_PREF.test(t)) return linea;
+      var n = 0;
+      linea.forEach(function(c){ if(c.a) n++; });
+      if(n === 0 || n / t.trim().length < 0.6) return linea;
+      cambios++;
+      var limpia = linea.map(function(c){
+        return c.a ? {ch:c.ch, b:c.b, i:false, s:c.s, a:false, m:c.m} : c;
+      });
+      return charsDe('> ').concat(limpia);
+    });
+
+    if(!cambios){
+      flashBoton(document.getElementById('bCita'), 'sin textuales en línea propia');
+      return;
+    }
+    var nuevo = unirLineas(lineas);
+    editor.innerHTML = domFromModel(nuevo);
+    ponerSeleccion(nuevo, nuevo.length, nuevo.length);
+    sync();
+  }
+
+  function sacarDeteccion(){
+    var st = leerModelo();
+    var model = st.model;
+    for(var i=0;i<model.length;i++){
+      if(model[i].a){ model[i].i = false; model[i].a = false; }
+    }
+    editor.innerHTML = domFromModel(model);
+    ponerSeleccion(model, st.ini, st.fin);
+    sync();
+  }
+
+  /* ---------- markup de WhatsApp -> modelo ---------- */
+  function modelFromWa(texto){
+    var model = [];
+    var lineas = texto.replace(/\r/g,'').split('\n');
+    lineas.forEach(function(linea, li){
+      if(li) model.push({ch:'\n',b:false,i:false,s:false,a:false});
+      var st = {b:false, i:false, s:false};
+      var pref = RX_PREF.exec(linea);
+      var desde = pref ? pref[0].length : 0;
+      var urls = urlsDe(linea, true);
+      var k;
+      for(k=0;k<desde;k++) model.push({ch:linea.charAt(k),b:false,i:false,s:false,a:false});
+      for(k=desde;k<linea.length;k++){
+        var c = linea.charAt(k);
+        if(c === '`' && linea.substr(k, 3) === '```'){
+          var cierre = linea.indexOf('```', k + 3);
+          if(cierre > -1){
+            for(var q = k + 3; q < cierre; q++){
+              model.push({ch:linea.charAt(q), b:false, i:false, s:false, a:false, m:true});
+            }
+            k = cierre + 2;
+            continue;
+          }
+        }
+        var flag = c === '*' ? 'b' : c === '_' ? 'i' : c === '~' ? 's' : null;
+        if(flag && !enTramo(urls, k)){
+          if(st[flag]){
+            if(k > 0 && !/\s/.test(linea.charAt(k-1))){ st[flag] = false; continue; }
+          } else {
+            var sig = linea.charAt(k+1);
+            if(sig && !/\s/.test(sig) && linea.indexOf(c, k+1) > -1){ st[flag] = true; continue; }
+          }
+        }
+        model.push({ch:c, b:st.b, i:st.i, s:st.s, a:false});
+      }
+    });
+    return model;
+  }
+
+  /* ---------- reducir con IA ---------- */
+  var apiKey   = document.getElementById('apiKey');
+  var iaModelo = document.getElementById('iaModelo');
+  var iaLargo  = document.getElementById('iaLargo');
+  var iaEstado = document.getElementById('iaEstado');
+  var bIA      = document.getElementById('bIA');
+  var bVolver  = document.getElementById('bVolver');
+  var iaPrompt = document.getElementById('iaPrompt');
+  var previo   = null;   // HTML del texto original
+  var iaOriginalTexto = null;   // markup del original, fuente de todos los reintentos
+  var intentos = 0;
+  var recordarKey = document.getElementById('recordarKey');
+
+  /* --- la key y los ajustes sobreviven a la recarga --- */
+  var cfgFormato = null;
+  var LS_KEY = 'wa-editor-key';
+  var LS_CFG = 'wa-editor-cfg';
+
+  function guardar(nombre, valor){
+    try{
+      if(valor === null) localStorage.removeItem(nombre);
+      else localStorage.setItem(nombre, valor);
+    }catch(e){}   // navegación privada o almacenamiento bloqueado: sigue andando sin recordar
+  }
+  function leer(nombre){
+    try{ return localStorage.getItem(nombre); }catch(e){ return null; }
+  }
+
+  function guardarKey(){
+    var k = apiKey.value.trim();
+    if(k !== apiKey.value) apiKey.value = k;   // por si la pegaste con espacios o un salto
+    guardar(LS_KEY, (recordarKey.checked && k) ? k : null);
+    guardarCfg();
+  }
+  function guardarCfg(){
+    guardar(LS_CFG, JSON.stringify({
+      modelo: iaModelo.value,
+      largo: iaLargo.value,
+      ref: document.getElementById('locRef').value,
+      recordar: recordarKey.checked,
+      formato: formato,
+      limTipo: limTipo.value
+    }));
+  }
+
+  (function recuperar(){
+    var cfg = {};
+    try{ cfg = JSON.parse(leer(LS_CFG) || '{}'); }catch(e){}
+    recordarKey.checked = cfg.recordar !== false;
+    if(cfg.modelo) iaModelo.value = cfg.modelo;
+    if(cfg.largo)  iaLargo.value  = cfg.largo;
+    if(cfg.ref)    document.getElementById('locRef').value = cfg.ref;
+    var k = leer(LS_KEY);
+    if(k) apiKey.value = k;
+    if(cfg.formato) cfgFormato = cfg.formato;
+    if(cfg.limTipo) document.getElementById('limTipo').value = cfg.limTipo;
+  })();
+
+  var bVerKey = document.getElementById('bVerKey');
+  bVerKey.addEventListener('click', function(){
+    var oculta = apiKey.type === 'password';
+    apiKey.type = oculta ? 'text' : 'password';
+    bVerKey.textContent = oculta ? 'ocultar' : 'ver';
+  });
+
+  apiKey.addEventListener('input', guardarKey);
+  recordarKey.addEventListener('change', guardarKey);
+  iaModelo.addEventListener('input', guardarCfg);
+  iaLargo.addEventListener('input', guardarCfg);
+  document.getElementById('locRef').addEventListener('input', guardarCfg);
+
+  function nota(msg, clase){
+    iaEstado.textContent = msg;
+    iaEstado.className = 'ia-nota' + (clase ? ' ' + clase : '');
+  }
+
+  var SISTEMA = [
+    'Sos editor de una redacción argentina y preparás textos para mandar por WhatsApp.',
+    'Reducí el texto que te dan respetando estas reglas:',
+    '1. Nunca reescribas ni parafrasees lo que está entre comillas. Un textual se conserva palabra por palabra o se elimina entero.',
+    '2. Conservá tal cual los marcadores de WhatsApp: *negrita*, _cursiva_, ~tachado~, las viñetas (- ), las listas numeradas y las citas (> ).',
+    '3. Copiá las URLs sin tocarlas y sin ponerles marcadores.',
+    '4. No agregues datos, adjetivos ni valoraciones que no estén en el original.',
+    '5. Mantené el registro informativo y el orden de importancia: lo primero que se va es lo accesorio.',
+    'Devolvé únicamente el texto reducido, sin comillas de bloque, sin encabezados y sin explicaciones.'
+  ].join('\n');
+
+  function etiquetaIA(){
+    bIA.textContent = (previo === null) ? 'Reducir con IA' : 'Reducir de nuevo';
+  }
+
+  var bReducirLim = document.getElementById('bReducirLim');
+  var timerIA = null, t0IA = 0;
+
+  function marcarCargando(on){
+    var botones = [bIA, bAjustar, bReducirLim];
+    if(on){
+      t0IA = Date.now();
+      botones.forEach(function(b){
+        b.disabled = true;
+        b.innerHTML = '<span class="spin"></span>Reduciendo <span class="seg">0s</span>';
+      });
+      timerIA = setInterval(function(){
+        var s = Math.round((Date.now() - t0IA) / 1000) + 's';
+        Array.prototype.forEach.call(document.querySelectorAll('.seg'), function(e){ e.textContent = s; });
+      }, 250);
+    } else {
+      if(timerIA){ clearInterval(timerIA); timerIA = null; }
+      botones.forEach(function(b){ b.disabled = false; });
+      etiquetaIA();
+      bReducirLim.textContent = 'Reducir con IA';
+      bAjustar.textContent = 'Ajustar con IA';
+      pintarLimite();
+    }
+  }
+
+  function reducir(){
+    var key = apiKey.value.trim();
+    if(!key){ nota('Pegá tu API key de OpenAI para usar esta función.', 'error'); apiKey.focus(); return; }
+
+    // los reintentos parten siempre del texto original, no de la reducción anterior
+    var texto = (iaOriginalTexto !== null) ? iaOriginalTexto : waFromModel(modelFromDom(editor), 'wa');
+    var htmlOriginal = (previo !== null) ? previo : editor.innerHTML;
+    if(!texto.trim()){ nota('No hay texto para reducir.', 'error'); return; }
+
+    var largo = parseInt(iaLargo.value, 10) || 600;
+    var modelo = iaModelo.value.trim() || 'gpt-5.6-terra';
+    var extra = iaPrompt.value.trim();
+
+    marcarCargando(true);
+    intentos++;
+    nota('Intento ' + intentos + ' sobre el texto original (' + texto.length + ' caracteres) con ' + modelo + '…');
+
+    var pedido = 'Reducí este texto a un máximo de ' + largo + ' caracteres.';
+    if(extra) pedido += '\nIndicaciones del editor para esta versión: ' + extra;
+    pedido += '\n\n' + texto;
+
+    fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json', 'Authorization':'Bearer ' + key},
+      body: JSON.stringify({
+        model: modelo,
+        messages: [
+          {role:'system', content: SISTEMA},
+          {role:'user', content: pedido}
+        ]
+      })
+    })
+    .then(function(r){ return r.json().then(function(d){ return {ok:r.ok, d:d}; }); })
+    .then(function(res){
+      if(!res.ok){
+        var msg = res.d && res.d.error && res.d.error.message ? res.d.error.message : 'Error de la API.';
+        nota('OpenAI respondió: ' + msg, 'error');
+        return;
+      }
+      var salidaIA = res.d.choices && res.d.choices[0] && res.d.choices[0].message
+        ? res.d.choices[0].message.content : '';
+      salidaIA = (salidaIA || '').replace(/^```[a-z]*\n?/i,'').replace(/\n?```$/,'').trim();
+      if(!salidaIA){ nota('La respuesta vino vacía. Probá de nuevo o con otro modelo.', 'error'); return; }
+
+      if(previo === null){ previo = htmlOriginal; iaOriginalTexto = texto; }
+      bVolver.hidden = false;
+      editor.innerHTML = domFromModel(modelFromWa(salidaIA));
+      detectar();
+      nota('Intento ' + intentos + ': de ' + texto.length + ' a ' + salida.textContent.length +
+           ' caracteres. Si no te convence, cambiá las indicaciones y volvé a reducir: siempre parte del original.', 'ok');
+    })
+    .catch(function(err){
+      nota('No se pudo conectar con la API: ' + err.message, 'error');
+    })
+    .then(function(){
+      marcarCargando(false);
+    });
+  }
+
+  bIA.addEventListener('click', reducir);
+  bVolver.addEventListener('click', function(){
+    if(previo === null) return;
+    editor.innerHTML = previo;
+    previo = null;
+    iaOriginalTexto = null;
+    intentos = 0;
+    bVolver.hidden = true;
+    etiquetaIA();
+    sync();
+    nota('Volviste al texto original.');
+  });
+
+  /* ---------- limpieza tipográfica ---------- */
+  function copiaCon(c, ch){
+    return {ch:ch, b:c.b, i:c.i, s:c.s, a:c.a, m:c.m};
+  }
+
+  // comillas curvas, apóstrofos, puntos suspensivos, rayas de inciso y espacios
+  function limpiarModelo(model){
+    var out = [];
+    function ultimo(){ return out.length ? out[out.length-1].ch : '\n'; }
+
+    // las líneas con tres o más espacios seguidos están alineadas a propósito:
+    // ahí no se normalizan los espacios, o se rompe la tabla
+    var alineada = [], idx = 0;
+    toLines(model).forEach(function(linea){
+      var esTabla = /   /.test(textoLinea(linea));
+      for(var k=0;k<linea.length;k++) alineada[idx++] = esTabla;
+      alineada[idx++] = false;
+    });
+
+    for(var i=0;i<model.length;i++){
+      var c = model[i], ch = c.ch;
+
+      if(ch === '"'){
+        var prev = ultimo();
+        var abre = (prev === '\n' || prev === ' ' || '(\u00A1\u00BF\u2014\u00AB\u201C'.indexOf(prev) > -1);
+        out.push(copiaCon(c, abre ? '\u201C' : '\u201D'));
+        continue;
+      }
+
+      if(ch === "'" && /[A-Za-zÁÉÍÓÚÑáéíóúñ]/.test(ultimo()) &&
+         model[i+1] && /[A-Za-zÁÉÍÓÚÑáéíóúñ]/.test(model[i+1].ch)){
+        out.push(copiaCon(c, '\u2019'));
+        continue;
+      }
+
+      if(ch === '.' && model[i+1] && model[i+1].ch === '.' && model[i+2] && model[i+2].ch === '.'){
+        out.push(copiaCon(c, '\u2026'));
+        i += 2;
+        while(model[i+1] && model[i+1].ch === '.') i++;
+        continue;
+      }
+
+      if(ch === ' '){
+        if(alineada[i]){ out.push(c); continue; }         // columna alineada: no se toca
+        if(ultimo() === ' ') continue;                    // espacio doble
+        var sig = model[i+1] ? model[i+1].ch : '';
+        if(',;:.!?'.indexOf(sig) > -1 && sig !== '') continue;   // espacio antes de puntuación
+        // " - " entre palabras pasa a raya de inciso, salvo entre números
+        if(model[i+1] && model[i+1].ch === '-' && model[i+2] && model[i+2].ch === ' ' &&
+           !/\d/.test(ultimo()) && model[i+3] && !/\d/.test(model[i+3].ch)){
+          out.push(copiaCon(c, ' '));
+          out.push(copiaCon(model[i+1], '\u2014'));
+          out.push(copiaCon(model[i+2], ' '));
+          i += 2;
+          continue;
+        }
+        out.push(c);
+        continue;
+      }
+
+      out.push(c);
+    }
+    return out;
+  }
+
+  function limpiarTipografia(el, alTerminar){
+    el = el || editor;
+    var st = leerModelo(el);
+    var antes = st.model.length;
+    var model = limpiarModelo(st.model);
+    el.innerHTML = domFromModel(model);
+    var caret = Math.min(st.ini, model.length);
+    ponerSeleccion(model, caret, caret, el);
+    (alTerminar || sync)();
+    return antes !== model.length || true;
+  }
+
+  /* ---------- títulos en mayúsculas ---------- */
+  var SIGLAS = {};
+  ('AFIP ARCA ANSES INDEC ONU OMS FMI BCRA CGT CTA UCR PRO LLA PJ YPF PAMI IPC PBI IVA AFA ATE UBA CABA PBA DNU ONG ARBA SUBE ANMAT CONICET SMN OTAN UE FIFA CONMEBOL NBA VAR ADN TN EEUU')
+    .split(' ').forEach(function(s){ SIGLAS[s] = true; });
+
+  var RX_PAL = /[A-Za-zÁÉÍÓÚÑáéíóúñ0-9]+(?:[.'\u2019-][A-Za-zÁÉÍÓÚÑáéíóúñ0-9]+)*\.?/g;
+
+  function esTituloEnMayus(texto){
+    var letras = texto.replace(/[^A-Za-zÁÉÍÓÚÑáéíóúñ]/g,'');
+    if(letras.length < 8) return false;
+    var mayus = texto.replace(/[^A-ZÁÉÍÓÚÑ]/g,'').length;
+    return mayus / letras.length >= 0.85;
+  }
+
+  // cómo aparece cada palabra en el cuerpo del texto: sigla, nombre propio o común
+  function mapaFormas(lineas, esTit){
+    var m = {};
+    function set(k, v){
+      if(v === 'MAY'){ m[k] = 'MAY'; return; }
+      if(m[k] === 'MAY') return;
+      if(v === 'min'){ m[k] = 'min'; return; }
+      if(m[k] !== 'min') m[k] = 'Cap';
+    }
+    lineas.forEach(function(t, i){
+      if(esTit[i]) return;
+      var re = new RegExp(RX_PAL.source, 'g'), mm;
+      while((mm = re.exec(t)) !== null){
+        var limpio = mm[0].replace(/\.+$/,'');
+        var antes = t.slice(0, mm.index);
+        var inicio = antes.trim() === '' || /[.:!?\u00A1\u00BF"\u201C\u00AB]\s*$/.test(antes);
+        var k = limpio.toLowerCase();
+        if(/^[A-ZÁÉÍÓÚÑ]{2,}$/.test(limpio.replace(/\./g,''))) set(k, 'MAY');
+        else if(/^[A-ZÁÉÍÓÚÑ]/.test(limpio)){ if(!inicio) set(k, 'Cap'); }
+        else set(k, 'min');
+      }
+    });
+    return m;
+  }
+
+  function aCajaNormal(texto, mapa){
+    var res = texto.replace(RX_PAL, function(w){
+      var limpio = w.replace(/\.+$/,'');
+      var k = limpio.toLowerCase();
+      if(SIGLAS[limpio.toUpperCase().replace(/\./g,'')] || mapa[k] === 'MAY') return w.toUpperCase();
+      if(mapa[k] === 'Cap'){
+        var bajo = w.toLowerCase();
+        return bajo.charAt(0).toUpperCase() + bajo.slice(1);
+      }
+      return w.toLowerCase();
+    });
+    return res.replace(/(^|[.!?\u00A1\u00BF]\s+)([a-záéíóúñ])/g, function(_, p, c){
+      return p + c.toUpperCase();
+    });
+  }
+
+  // forzar: [l1,l2] para convertir a mano; null para detectar los títulos solos
+  function convertirTitulos(forzar){
+    var st = leerModelo();
+    var lineas = toLines(st.model);
+    var textos = lineas.map(textoLinea);
+    var esTit = textos.map(function(t, i){
+      if(forzar) return i >= forzar[0] && i <= forzar[1] && t.trim() !== '';
+      return esTituloEnMayus(t);
+    });
+    if(esTit.indexOf(true) === -1) return false;
+
+    var mapa = mapaFormas(textos, esTit);
+    lineas = lineas.map(function(linea, i){
+      if(!esTit[i]) return linea;
+      var nuevo = aCajaNormal(textos[i], mapa);
+      return nuevo.split('').map(function(c){
+        return {ch:c, b:true, i:false, s:false, a:false};
+      });
+    });
+    var model = unirLineas(lineas);
+    editor.innerHTML = domFromModel(model);
+    ponerSeleccion(model, Math.min(st.ini, model.length), Math.min(st.fin, model.length));
+    sync();
+    return true;
+  }
+
+  document.getElementById('bTitulo').addEventListener('mousedown', function(ev){ ev.preventDefault(); });
+  function flashBoton(b, msg){
+    var antes = b.textContent;
+    b.textContent = msg;
+    setTimeout(function(){ b.textContent = antes; }, 1600);
+  }
+
+  function tituloDeSeleccion(){
+    var st = leerModelo();
+    var bTit = document.getElementById('bTitulo');
+
+    // sin selección: busca los títulos en mayúsculas en toda la nota,
+    // así no depende de dónde quedó el cursor
+    if(st.ini === st.fin){
+      if(!convertirTitulos(null)) flashBoton(bTit, 'sin títulos en mayúsculas');
+      ubicarBurbuja();
+      return;
+    }
+
+    // con texto seleccionado, manda la selección
+    var lineas = toLines(st.model);
+    var l1 = posDeIndice(lineas, Math.min(st.ini, st.fin)).line;
+    var l2 = posDeIndice(lineas, Math.max(st.ini, st.fin)).line;
+    convertirTitulos([l1, l2]);
+    ubicarBurbuja();
+  }
+  document.getElementById('bTitulo').addEventListener('click', tituloDeSeleccion);
+  document.getElementById('bTipo').addEventListener('click', function(){ limpiarTipografia(); });
+  document.getElementById('bCita').addEventListener('click', textualesACita);
+
+  /* ---------- ubicaciones ---------- */
+  var PAISES = ('Argentina|Uruguay|Brasil|Chile|Paraguay|Bolivia|Perú|Ecuador|Colombia|Venezuela|Guyana|Surinam|Guayana Francesa|México|Cuba|Panamá|Guatemala|Honduras|Nicaragua|Costa Rica|El Salvador|Belice|República Dominicana|Haití|Jamaica|Puerto Rico|Bahamas|Barbados|Trinidad y Tobago|Granada|Santa Lucía|Dominica|Antigua y Barbuda|San Vicente y las Granadinas|San Cristóbal y Nieves|Aruba|Curazao|Bermudas|Groenlandia|Islas Malvinas|Antártida|Estados Unidos|Canadá|España|Portugal|Francia|Italia|Alemania|Reino Unido|Inglaterra|Escocia|Gales|Irlanda|Irlanda del Norte|Países Bajos|Holanda|Bélgica|Luxemburgo|Suiza|Austria|Andorra|Mónaco|San Marino|Malta|Liechtenstein|Ciudad del Vaticano|Suecia|Noruega|Dinamarca|Finlandia|Islandia|Polonia|República Checa|Chequia|Eslovaquia|Eslovenia|Croacia|Serbia|Bosnia y Herzegovina|Bosnia|Montenegro|Macedonia del Norte|Macedonia|Albania|Kosovo|Grecia|Chipre|Turquía|Rumania|Rumanía|Bulgaria|Hungría|Ucrania|Rusia|Bielorrusia|Lituania|Letonia|Estonia|Moldavia|Georgia|Armenia|Azerbaiyán|Israel|Palestina|Líbano|Siria|Jordania|Irak|Irán|Afganistán|Arabia Saudita|Emiratos Árabes Unidos|Emiratos Árabes|Qatar|Kuwait|Baréin|Bahréin|Omán|Yemen|Egipto|Marruecos|Argelia|Túnez|Libia|Sudán|Sudán del Sur|Etiopía|Eritrea|Yibuti|Somalia|Kenia|Uganda|Ruanda|Burundi|Tanzania|Mozambique|Malaui|Zambia|Zimbabue|Botsuana|Namibia|Sudáfrica|Lesoto|Esuatini|Madagascar|Mauricio|Seychelles|Comoras|Nigeria|Ghana|Senegal|Malí|Burkina Faso|Níger|Chad|Camerún|Gabón|Congo|República del Congo|República Democrática del Congo|Angola|Guinea|Guinea-Bisáu|Guinea Ecuatorial|Costa de Marfil|Liberia|Sierra Leona|Togo|Benín|Gambia|Cabo Verde|Mauritania|Santo Tomé y Príncipe|República Centroafricana|China|Japón|India|Pakistán|Bangladesh|Corea del Sur|Corea del Norte|Corea|Taiwán|Mongolia|Vietnam|Tailandia|Camboya|Laos|Myanmar|Birmania|Indonesia|Filipinas|Malasia|Singapur|Brunéi|Timor Oriental|Nepal|Bután|Sri Lanka|Maldivas|Kazajistán|Uzbekistán|Turkmenistán|Kirguistán|Tayikistán|Australia|Nueva Zelanda|Papúa Nueva Guinea|Fiyi|Islas Salomón|Vanuatu|Samoa|Tonga|Kiribati|Tuvalu|Nauru|Naoero|Palaos|Islas Marshall|Micronesia|Polinesia Francesa|Nueva Caledonia').split('|');
+
+  var LUGARES_AR = ('Buenos Aires|CABA|Córdoba|Rosario|Mendoza|La Plata|Mar del Plata|Tucumán|Salta|Santa Fe|San Juan|Neuquén|Bariloche|Ushuaia|Río Gallegos|Comodoro Rivadavia|Bahía Blanca|Tandil|Corrientes|Resistencia|Posadas|Formosa|Jujuy|Catamarca|La Rioja|San Luis|Santiago del Estero|Paraná|Concordia|Trelew|Puerto Madryn|Rawson|Viedma|Santa Rosa|Río Cuarto|Villa María|San Rafael|Junín|Pergamino|Olavarría|Necochea|Pinamar|Villa Gesell|Miramar|Chascomús|Luján|Tigre|San Isidro|Vicente López|Quilmes|Avellaneda|Lanús|Lomas de Zamora|La Matanza|Morón|Merlo|Moreno|San Martín|Tres de Febrero|Berazategui|Florencio Varela|Escobar|Pilar|Zárate|Campana|Ezeiza|San Fernando|Berisso|Ensenada|Patagonia|Tierra del Fuego|Chubut|Río Negro|Santa Cruz|La Pampa|Entre Ríos|Misiones|Chaco|Palermo|Recoleta|Belgrano|Caballito|Flores|Almagro|Villa Crespo|Boedo|San Telmo|La Boca|Barracas|Retiro|Constitución|Villa Urquiza|Núñez|Colegiales|Chacarita|Saavedra|Mataderos|Liniers|Villa Devoto|Villa Luro|Parque Patricios|Puerto Madero|Balvanera|Monserrat|Villa Lugano|Mataderos').split('|');
+
+  var LUGARES_MUNDO = ('Madrid|Barcelona|Sevilla|Valencia|París|Marsella|Roma|Milán|Nápoles|Venecia|Londres|Manchester|Berlín|Múnich|Hamburgo|Lisboa|Oporto|Ámsterdam|Bruselas|Ginebra|Zúrich|Viena|Praga|Budapest|Varsovia|Moscú|San Petersburgo|Kiev|Estambul|Atenas|Jerusalén|Tel Aviv|Gaza|Cisjordania|Beirut|Damasco|Bagdad|Teherán|Dubái|Doha|El Cairo|Casablanca|Nueva York|Washington|Miami|Los Ángeles|Chicago|Houston|Dallas|Boston|Filadelfia|San Francisco|Las Vegas|Toronto|Montreal|Vancouver|Ciudad de México|Guadalajara|Monterrey|La Habana|Bogotá|Medellín|Cartagena|Lima|Cusco|Santiago|Valparaíso|Montevideo|Punta del Este|Colonia|Asunción|La Paz|Santa Cruz de la Sierra|Quito|Guayaquil|Caracas|San Pablo|São Paulo|Río de Janeiro|Brasilia|Florianópolis|Porto Alegre|Curitiba|Salvador|Recife|Tokio|Osaka|Pekín|Shanghái|Hong Kong|Seúl|Bombay|Nueva Delhi|Bangkok|Yakarta|Sídney|Melbourne').split('|');
+
+  var HITOS_AR = ('Casa Rosada|Plaza de Mayo|Obelisco|Comodoro Py|Tribunales|Aeroparque|Ezeiza|Luna Park|Teatro Colón|La Bombonera|Monumental|Quinta de Olivos|Congreso de la Nación|Costanera|Retiro|Once|Constitución|Puerto Madero|Parque Lezama|Parque Centenario|Bosques de Palermo|Tecnópolis|Movistar Arena|Estadio Único|Hospital Garrahan|Hospital Italiano|Hospital Posadas|Facultad de Derecho|Ciudad Universitaria|Cárcel de Ezeiza|Penal de Marcos Paz|Casa de Gobierno|Palacio de Tribunales|Plaza Miserere|Plaza Italia|Plaza San Martín|Plaza Francia|Plaza Houssay').split('|');
+
+  var HITOS_MUNDO = ('Casa Blanca|Vaticano|Kremlin|Torre Eiffel|Coliseo|Big Ben|Wall Street|Times Square|Central Park|Muro de Berlín|Franja de Gaza|Machu Picchu|Cristo Redentor|Maracaná|Santiago Bernabéu|Camp Nou|Wembley|Pentágono|Capitolio|Casa de la Moneda').split('|');
+
+  function escapeRx(s){ return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+  function alternancia(lista){
+    return lista.slice().sort(function(a,b){ return b.length - a.length; }).map(escapeRx).join('|');
+  }
+
+  var CONOCIDOS = {};
+  PAISES.concat(LUGARES_AR, LUGARES_MUNDO, HITOS_MUNDO).forEach(function(n){ CONOCIDOS[n.toLowerCase()] = true; });
+  var CANON = {};
+  PAISES.concat(LUGARES_AR, LUGARES_MUNDO, HITOS_AR, HITOS_MUNDO).forEach(function(n){ CANON[n.toLowerCase()] = n; });
+  // sin distinguir mayúsculas: "casa rosada" escrito al pasar también cuenta
+  var PAIS_O_CIUDAD = new RegExp('\\b(?:' + alternancia(PAISES.concat(LUGARES_AR, LUGARES_MUNDO, HITOS_AR, HITOS_MUNDO)) + ')\\b', 'gi');
+
+  var VIAS = 'Av\\.|Avda\\.|Avenida|Calle|Ruta|Autopista|Diagonal|Pasaje|Pje\\.|Bv\\.|Boulevard|Camino|Colectora';
+  var MAY = '[A-ZÁÉÍÓÚÑ]';
+  var PAL = '[\\wáéíóúñÁÉÍÓÚÑ.\'-]';
+
+  // Av. Corrientes 1234 / Comodoro Py 2002
+  var RX_DIR = new RegExp(
+    '\\b(?:' + VIAS + ')[ ]+' + MAY + PAL + '*(?:[ ]+(?:de|del|la|las|los|y)[ ]+)?(?:' + MAY + PAL + '*[ ]*){0,3}(?:al[ ]+)?\\d{1,5}\\b' +
+    '|\\b' + MAY + PAL + '+(?:[ ]+' + MAY + PAL + '+){0,2}[ ]+\\d{2,5}\\b'
+  , 'g');
+  // Rivadavia y Doblas / Corrientes esquina Callao
+  var RX_CRUCE = new RegExp(
+    '\\b(?:' + VIAS + ')?[ ]*' + MAY + PAL + '+(?:[ ]+' + MAY + PAL + '+)?[ ]+(?:y|esquina|esq\\.)[ ]+' + MAY + PAL + '+(?:[ ]+' + MAY + PAL + '+)?\\b'
+  , 'g');
+  // Plaza de Mayo / Teatro Colón / Hospital Italiano / Estadio Único
+  var TIPOS = 'Plaza|Parque|Estadio|Teatro|Cine|Hospital|Sanatorio|Clínica|Aeropuerto|Universidad|Facultad|Museo|Iglesia|Catedral|Basílica|Parroquia|Club|Estación|Terminal|Puerto|Cárcel|Penal|Comisaría|Escuela|Colegio|Instituto|Casa|Palacio|Ministerio|Secretaría|Municipalidad|Intendencia|Legislatura|Cementerio|Shopping|Centro|Hotel|Complejo|Predio|Anfiteatro|Autódromo|Hipódromo|Monumento|Puente|Torre|Edificio|Balneario|Playa|Cerro|Volcán|Laguna|Lago|Embalse|Dique|Estancia|Mercado|Feria|Galería|Biblioteca|Archivo|Cuartel|Base|Villa';
+  var RX_TIPO = new RegExp(
+    '\\b(?:' + TIPOS + ')(?:[ ]+(?:de|del|la|las|los|el)\\b){0,2}(?:[ ]+' + MAY + PAL + '+){1,3}'
+  , 'g');
+
+  // frente a la Casa Rosada / desde Comodoro Py / en el Luna Park
+  var NO_ES_LUGAR = /^(gobierno|ejecutivo|estado|nación|justicia|congreso|senado|diputados|clarín|infobae|twitter|instagram|facebook|google|youtube|tiktok|whatsapp|telefe|américa|el país|la nación|reuters|afp|efe)$/i;
+  var RX_PREP = new RegExp(
+    '\\b(?:en|desde|hacia|hasta|frente a|cerca de|camino a|rumbo a)[ ]+(?:el|la|los|las)[ ]+(' +
+      MAY + PAL + '+(?:[ ]+(?:de|del|la|las|los)\\b){0,1}(?:[ ]+' + MAY + PAL + '+){0,2}' +
+    ')'
+  , 'g');
+  // barrio X / la ciudad de X / provincia de X
+  var RX_INTRO = new RegExp(
+    '\\b(?:barrio(?:[ ]+de)?|ciudad de|localidad de|partido de|provincia de|municipio de|comuna de|pueblo de|zona de)[ ]+(' + MAY + PAL + '+(?:[ ]+(?:de|del|la|las|los)[ ]+)?(?:' + MAY + PAL + '+)?(?:[ ]+' + MAY + PAL + '+)?)'
+  , 'gi');
+
+  var CON_NORMA = /\b(ley|art[íi]culos?|decreto|resoluci[óo]n|expediente|causa|inciso|cap[íi]tulo|dnu)\b/i;
+  var NO_LUGAR = /^(ley|art|artículo|articulo|decreto|resolución|resolucion|expediente|causa|página|pagina|km|nº|n°|dnu|capítulo|capitulo|inciso|tomo|folio|siglo|año|artículos)\b/i;
+
+  var ABREV = /^(Av|Avda|Pje|Bv|Esq|Gral|Dr|Dra|Sr|Sra|Srta|Ing|Lic|Prof|Cnel|Tte|Pte|Sta|Sto|Ntra|Cap)\.$/i;
+  function cortarOracion(t){
+    var partes = t.split(' ');
+    for(var i=0;i<partes.length;i++){
+      if(/\.$/.test(partes[i]) && !ABREV.test(partes[i])){
+        return partes.slice(0, i+1).join(' ').replace(/\.$/,'');
+      }
+    }
+    return t;
+  }
+
+  function lugaresDe(texto){
+    var hits = [];
+    function juntar(re, grupo){
+      re.lastIndex = 0;
+      var m;
+      while((m = re.exec(texto)) !== null){
+        var t = ((grupo ? m[grupo] : m[0]) || '').trim().replace(/\s+/g,' ');
+        t = cortarOracion(t.split('\n')[0]);
+        t = t.replace(/^(?:de|del|la|las|los|el)\s+/i, '').replace(/[.,;:!?)\]"\u201D]+$/, '');
+        if(!/[A-ZÁÉÍÓÚÑ]/.test(t) && t.indexOf(' ') === -1) continue;
+        if(CANON[t.toLowerCase()]) t = CANON[t.toLowerCase()];
+        if(!t || NO_LUGAR.test(t) || NO_ES_LUGAR.test(t) || CON_NORMA.test(t) || /^\d/.test(t)) continue;
+        hits.push({t:t, i:m.index, f:m.index + m[0].length});
+      }
+    }
+    juntar(PAIS_O_CIUDAD, 0);
+    juntar(RX_DIR, 0);
+    juntar(RX_CRUCE, 0);
+    juntar(RX_INTRO, 1);
+    juntar(RX_TIPO, 0);
+    juntar(RX_PREP, 1);
+
+    hits.sort(function(a,b){ return a.i - b.i || (b.f - b.i) - (a.f - a.i); });
+    var res = [], vistos = {};
+    hits.forEach(function(h){
+      for(var i=0;i<res.length;i++){          // descarto lo que está adentro de otro match
+        if(h.i >= res[i].i && h.f <= res[i].f) return;
+      }
+      var k = h.t.toLowerCase();
+      if(vistos[k]) return;
+      vistos[k] = true;
+      res.push(h);
+    });
+    return res.slice(0, 12).map(function(h){ return h.t; });
+  }
+
+  // OSM devuelve el recuadro que ocupa el lugar: de ahí sale la altura del mapa
+  function zoomDe(geo){
+    if(!geo || !geo.bbox) return 14;
+    var dLat = Math.abs(geo.bbox[1] - geo.bbox[0]);
+    var dLon = Math.abs(geo.bbox[3] - geo.bbox[2]);
+    var zLon = Math.log(360 * 1.6 / Math.max(dLon, 0.0008)) / Math.LN2;
+    var zLat = Math.log(170 * 2.3 / Math.max(dLat, 0.0008)) / Math.LN2;
+    return Math.max(3, Math.min(17, Math.floor(Math.min(zLon, zLat))));
+  }
+
+  var TIPO_PAIS      = /^(country)$/;
+  var TIPO_PROVINCIA = /^(state|province|state_district|department|governorate)$/;
+  var TIPO_CIUDAD    = /^(city|town|village|hamlet|municipality|county|borough|suburb|neighbourhood|quarter|city_district|district|island)$/;
+  var TIPO_CALLE     = /^(road|residential|pedestrian|footway|primary|secondary|tertiary|house|house_number|building|amenity|shop|leisure|tourism|office|railway|aeroway|man_made|historic)$/;
+  var TIPO_REGION    = /^(region|continent|sea|ocean|archipelago|bay)$/;
+
+  // la altura sale del tamaño real; la etiqueta, de lo que OSM dice que es
+  function escalaDe(geo, z){
+    var t = geo ? (geo.tipo || '') : '';
+    if(TIPO_PAIS.test(t))      return 'País';
+    if(TIPO_PROVINCIA.test(t)) return 'Provincia';
+    if(TIPO_CIUDAD.test(t))    return 'Ciudad';
+    if(TIPO_CALLE.test(t))     return 'Calle';
+    if(TIPO_REGION.test(t))    return 'Región';
+    if(geo && geo.clase === 'highway') return 'Calle';
+    if(z >= 15) return 'Calle';
+    if(z >= 11) return 'Ciudad';
+    if(z >= 7)  return 'Provincia';
+    if(z >= 4)  return 'País';
+    return 'Región';
+  }
+
+  // arma la forma postal corta: "Balcarce 50, Buenos Aires"
+  function direccionCorta(a){
+    if(!a) return '';
+    var via = a.road || a.pedestrian || a.footway || a.square || '';
+    if(!via) return '';
+    var calle = a.house_number ? (via + ' ' + a.house_number) : via;
+    var ciudad = a.city || a.town || a.village || a.municipality || a.city_district || a.suburb || a.state || '';
+    return ciudad ? (calle + ', ' + ciudad) : calle;
+  }
+
+  function urlMaps(lugar, ref, geo){
+    if(geo && geo.lat){
+      // /place/<coordenadas>/@... es la URL que arma Google al buscar un punto:
+      // clava el pin sí o sí y respeta el zoom del arroba. Con el nombre en la ruta,
+      // el pin depende de que Google resuelva ese nombre y muchas veces no aparece.
+      var punto = geo.lat + ',' + geo.lon;
+      return 'https://www.google.com/maps/place/' + punto +
+             '/@' + punto + ',' + zoomDe(geo) + 'z';
+    }
+    var conocido = CONOCIDOS[lugar.toLowerCase()];
+    var q = (!conocido && ref) ? lugar + ', ' + ref : lugar;
+    return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
+  }
+
+  // sin coordenadas Google abre una búsqueda; con coordenadas clava el pin rojo
+  var geoCache = {};
+  function geocodificar(lugar, ref){
+    var conocido = CONOCIDOS[lugar.toLowerCase()];
+    var q = (!conocido && ref) ? lugar + ', ' + ref : lugar;
+    var k = q.toLowerCase();
+    if(geoCache[k] !== undefined) return Promise.resolve(geoCache[k]);
+    var url = 'https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=1&accept-language=es&q=' + encodeURIComponent(q);
+    return fetch(url, {headers:{'Accept':'application/json'}})
+      .then(function(r){ return r.json(); })
+      .then(function(arr){
+        var r = arr && arr[0];
+        var g = r ? {
+          lat: r.lat,
+          lon: r.lon,
+          nombre: r.display_name,
+          dir: direccionCorta(r.address),
+          tipo: (r.addresstype || r.type || '').toLowerCase(),
+          clase: (r.class || '').toLowerCase(),
+          bbox: r.boundingbox ? r.boundingbox.map(Number) : null
+        } : null;
+        geoCache[k] = g;
+        return g;
+      })
+      .catch(function(){ geoCache[k] = null; return null; });
+  }
+
+  /* --- estado de la lista: el editor tilda lo que quiere sumar --- */
+  var locRef    = document.getElementById('locRef');
+  var locManual = document.getElementById('locManual');
+  var locLista  = document.getElementById('locLista');
+  var bLocIns   = document.getElementById('bLocIns');
+  var locPin    = document.getElementById('locPin');
+  var locDir    = document.getElementById('locDir');
+  var locItems  = {};   // clave -> {nombre, titulo, marcado, manual, agregado}
+  var locOrden  = [];
+  var locFirma  = null;
+
+  function clave(n){ return n.toLowerCase(); }
+
+  function contarElegidas(){
+    var n = 0;
+    locOrden.forEach(function(k){ if(locItems[k].marcado) n++; });
+    bLocIns.textContent = 'Agregar al texto (' + n + ')';
+    bLocIns.disabled = n === 0;
+    return n;
+  }
+
+  function textoPin(it){
+    if(it.agregado) return 'agregado ✓';
+    if(it.buscando) return 'buscando pin…';
+    if(it.geo) return 'pin ✓ · ' + escalaDe(it.geo, zoomDe(it.geo));
+    if(it.geo === null && it.geoIntentado) return 'sin pin exacto';
+    return 'ver pin';
+  }
+
+  function refrescarPin(it){
+    if(!it.el) return;
+    it.el.pin.href = urlMaps(it.nombre, locRef.value.trim(), it.geo);
+    it.el.pin.textContent = textoPin(it);
+    it.el.pin.title = it.geo ? it.geo.nombre : 'Abrir en Google Maps';
+  }
+
+  function buscarPin(it){
+    if(it.buscando || it.geoIntentado) return;
+    it.buscando = true;
+    refrescarPin(it);
+    geocodificar(it.nombre, locRef.value.trim()).then(function(g){
+      it.buscando = false;
+      it.geoIntentado = true;
+      it.geo = g;
+      refrescarPin(it);
+    });
+  }
+
+  function dibujarLista(){
+    locLista.textContent = '';
+    if(!locOrden.length){
+      var p = document.createElement('p');
+      p.className = 'loc-vacio';
+      p.textContent = 'Sin ubicaciones detectadas todavía. Pegá el texto o sumá un lugar a mano.';
+      locLista.appendChild(p);
+      contarElegidas();
+      return;
+    }
+    locOrden.forEach(function(k){
+      var it = locItems[k];
+      var fila = document.createElement('div');
+      fila.className = 'loc-row' + (it.marcado ? ' elegida' : '');
+
+      var chk = document.createElement('input');
+      chk.type = 'checkbox';
+      chk.checked = !!it.marcado;
+      chk.setAttribute('aria-label', 'Sumar ' + it.nombre + ' al texto');
+
+      var tit = document.createElement('input');
+      tit.className = 'loc-tit';
+      tit.placeholder = 'Título del lugar (opcional)';
+      tit.value = it.titulo;
+      tit.addEventListener('input', function(){ it.titulo = tit.value; });
+
+      var nom = document.createElement('input');
+      nom.className = 'loc-nom';
+      nom.value = it.nombre;
+      nom.setAttribute('aria-label', 'Nombre del lugar');
+      nom.addEventListener('input', function(){
+        it.nombre = nom.value.trim();
+        it.geo = null; it.geoIntentado = false; it.buscando = false;
+        refrescarPin(it);
+      });
+      nom.addEventListener('blur', function(){
+        if(it.marcado && it.nombre) buscarPin(it);
+      });
+
+      var pin = document.createElement('a');
+      pin.className = 'loc-pin';
+      pin.target = '_blank';
+      pin.rel = 'noopener';
+
+      it.el = {pin: pin, fila: fila};
+      refrescarPin(it);
+
+      function togglear(v){
+        it.marcado = v;
+        chk.checked = v;
+        fila.classList.toggle('elegida', v);
+        contarElegidas();
+        if(v) buscarPin(it);
+      }
+      chk.addEventListener('change', function(){ togglear(chk.checked); });
+      // toda la fila tildea, salvo el campo de título y el link
+      fila.addEventListener('click', function(ev){
+        if(ev.target === tit || ev.target === nom || ev.target === pin || ev.target === chk) return;
+        togglear(!it.marcado);
+      });
+
+      fila.appendChild(chk); fila.appendChild(tit); fila.appendChild(nom); fila.appendChild(pin);
+      locLista.appendChild(fila);
+    });
+    contarElegidas();
+  }
+
+  function pintarLista(texto){
+    var detectadas = lugaresDe(texto);
+    var manuales = locOrden.filter(function(k){ return locItems[k].manual; });
+    var firma = detectadas.map(clave).join('|') + '#' + manuales.join('|');
+    if(firma === locFirma) return;   // no redibujo mientras el editor escribe un título
+    locFirma = firma;
+
+    var nuevos = {}, orden = [];
+    detectadas.forEach(function(n){
+      var k = clave(n);
+      nuevos[k] = locItems[k] || {nombre:n, titulo:'', marcado:false, manual:false, agregado:false};
+      orden.push(k);
+    });
+    manuales.forEach(function(k){
+      if(nuevos[k]) return;
+      nuevos[k] = locItems[k];
+      orden.push(k);
+    });
+    locItems = nuevos;
+    locOrden = orden;
+    dibujarLista();
+  }
+
+  function sumarManual(){
+    var n = locManual.value.trim();
+    if(!n) return;
+    var k = clave(n);
+    if(!locItems[k]){
+      locItems[k] = {nombre:n, titulo:'', marcado:true, manual:true, agregado:false};
+      locOrden.push(k);
+    } else {
+      locItems[k].marcado = true;
+    }
+    locManual.value = '';
+    locFirma = null;
+    dibujarLista();
+  }
+
+  function agregarUbicaciones(){
+    var elegidas = locOrden.filter(function(k){ return locItems[k].marcado; });
+    if(!elegidas.length) return;
+    var ref = locRef.value.trim();
+
+    bLocIns.disabled = true;
+    bLocIns.textContent = 'Buscando pines…';
+
+    // resuelvo coordenadas de a una para no castigar al servicio de mapas
+    var cadena = Promise.resolve();
+    elegidas.forEach(function(k){
+      cadena = cadena.then(function(){
+        var it = locItems[k];
+        if(it.geoIntentado) return null;
+        return geocodificar(it.nombre, ref).then(function(g){
+          it.geo = g; it.geoIntentado = true; it.buscando = false;
+        });
+      });
+    });
+
+    cadena.then(function(){ escribirBloque(elegidas, ref); });
+  }
+
+  var ALFILER = ' 📍';
+
+  // ¿esta línea pertenece a un bloque Mapa/Agenda que pusimos antes?
+  function enBloqueNuestro(lineas, i){
+    for(var k = i; k >= 0; k--){
+      var l = lineas[k].trim();
+      if(l === '') return false;
+      if(/^[*_~\s]*(Mapa|Agenda)[*_~\s]*$/.test(l)) return true;
+    }
+    return false;
+  }
+
+  // el bloque de mapas va antes del link a la nota, no al final de todo
+  function puntoDeInsercion(model){
+    var texto = model.map(function(c){ return c.ch; }).join('');
+    var lineas = texto.split('\n');
+    var idx = null;
+    for(var i = lineas.length - 1; i >= 0; i--){
+      var l = lineas[i].trim();
+      if(l === '') continue;
+      // línea de link: la que es casi solo una URL ("Nota completa: https://…" cuenta)
+      var sinUrl = l.replace(RX_URL, '').replace(/[\s:·—–-]+/g, '');
+      if(!RX_URL.test(l) || sinUrl.length > 24) break;
+      if(enBloqueNuestro(lineas, i)) break;   // ese link pertenece a un bloque ya puesto
+      idx = i;
+    }
+    if(idx === null) return model.length;
+    var pos = 0;
+    for(var k = 0; k < idx; k++) pos += lineas[k].length + 1;
+    return pos;
+  }
+
+  function escribirBloque(elegidas, ref){
+    var model = modelFromDom(editor);
+
+    // primero, junto a la mención en el cuerpo: dirección postal y alfiler
+    if(locPin.checked || locDir.checked){
+      var marcas = [];
+      var t0 = model.map(function(c){ return c.ch; }).join('');
+      var corte0 = t0.indexOf('\n');
+      var desde = (corte0 === -1) ? 0 : corte0 + 1;
+      elegidas.forEach(function(k){
+        var it = locItems[k];
+        var nom = it.nombre;
+        if(!nom) return;
+        var pos = t0.indexOf(nom, desde);
+        if(pos === -1) return;
+        var sufijo = '';
+        // si el nombre ya trae altura, la dirección postal sobra
+        if(locDir.checked && it.geo && it.geo.dir && !/\d/.test(nom)){
+          sufijo += ' (' + it.geo.dir + ')';
+        }
+        if(locPin.checked) sufijo += ALFILER;
+        if(sufijo) marcas.push({fin: pos + nom.length, sufijo: sufijo});
+      });
+      marcas.sort(function(a,b){ return b.fin - a.fin; }).forEach(function(m){
+        var texto = model.map(function(c){ return c.ch; }).join('');
+        if(texto.slice(m.fin, m.fin + m.sufijo.length) === m.sufijo) return;
+        var estilo = model[m.fin - 1] || {b:false, i:false, s:false};
+        var trozo = [];
+        for(var q=0;q<m.sufijo.length;q++){
+          trozo.push({ch:m.sufijo.charAt(q), b:!!estilo.b, i:!!estilo.i, s:!!estilo.s, a:false});
+        }
+        model = model.slice(0, m.fin).concat(trozo, model.slice(m.fin));
+      });
+    }
+
+    var bloque = [];
+    function linea(txt, negrita){
+      for(var k=0;k<txt.length;k++) bloque.push({ch:txt.charAt(k), b:!!negrita, i:false, s:false, a:false});
+    }
+    function salto(){ bloque.push({ch:'\n',b:false,i:false,s:false,a:false}); }
+
+    var corteInsercion = puntoDeInsercion(model);
+    var alFinal = corteInsercion >= model.length;
+    if(model.length){ salto(); if(alFinal) salto(); }
+    linea('Mapa', true);
+    elegidas.forEach(function(k, idx){
+      var it = locItems[k];
+      salto();
+      if(idx) salto();
+      if(it.titulo){ linea(it.titulo, true); salto(); }
+      linea((locPin.checked ? '📍 ' : '') + it.nombre, false); salto();
+      linea(urlMaps(it.nombre, ref, it.geo), false);
+      it.marcado = false;
+      it.agregado = true;
+    });
+
+    if(!alFinal){ bloque.push({ch:'\n',b:false,i:false,s:false,a:false});
+                  bloque.push({ch:'\n',b:false,i:false,s:false,a:false}); }
+    var nuevo = model.slice(0, corteInsercion).concat(bloque, model.slice(corteInsercion));
+    editor.innerHTML = domFromModel(nuevo);
+    ponerSeleccion(nuevo, corteInsercion + bloque.length, corteInsercion + bloque.length);
+    locFirma = null;
+    sync();
+    dibujarLista();
+  }
+
+  bLocIns.addEventListener('click', agregarUbicaciones);
+  document.getElementById('bLocAdd').addEventListener('click', sumarManual);
+  locManual.addEventListener('keydown', function(ev){
+    if(ev.key === 'Enter'){ ev.preventDefault(); sumarManual(); }
+  });
+  locRef.addEventListener('input', function(){ dibujarLista(); });
+
+  /* ---------- sincronización ---------- */
+  function sync(){
+    var model = modelFromDom(editor);
+    var wa = waFromModel(model);
+    salida.textContent = wa;
+
+    var chars = 0, quotes = 0, prev = false;
+    for(var i=0;i<model.length;i++){
+      if(model[i].ch !== '\n') chars++;
+      if(model[i].a && !prev) quotes++;
+      prev = model[i].a;
+    }
+    nChars.textContent = chars.toLocaleString('es-AR');
+    nQuotes.textContent = quotes;
+
+    // enlaces: los cuento y aviso si alguno tiene caracteres que WhatsApp lee como formato
+    var texto = model.map(function(c){ return c.ch; }).join('');
+    var urls = urlsDe(texto), rotos = [];
+    for(var u=0;u<urls.length;u++){
+      var link = texto.slice(urls[u][0], urls[u][1]);
+      if(/[_*~`]/.test(link)) rotos.push(link);
+    }
+    nLinks.textContent = urls.length;
+    nFechas.textContent = fechasDe(texto).length;
+    pintarFechas(texto);
+    pintarLista(texto);
+    pintarLimite();
+    if(rotos.length){
+      aviso.style.display = 'block';
+      aviso.textContent = rotos.length === 1
+        ? 'Ojo: el enlace ' + rotos[0] + ' tiene _ * ~ o backtick. WhatsApp los lee como formato y el link puede cortarse. Probá con un acortador.'
+        : 'Ojo: ' + rotos.length + ' enlaces tienen _ * ~ o backtick. WhatsApp los lee como formato y pueden cortarse. Probá con un acortador.';
+    } else {
+      aviso.style.display = 'none';
+    }
+  }
+
+  /* ---------- comandos ---------- */
+  try{ document.execCommand('styleWithCSS', false, false); }catch(e){}
+
+  function cmd(name){
+    editor.focus();
+    try{ document.execCommand(name, false, null); }catch(e){}
+    sync();
+  }
+
+  document.getElementById('bDetect').addEventListener('click', detectar);
+  document.getElementById('bUndetect').addEventListener('click', sacarDeteccion);
+  var bClear = document.getElementById('bClear');
+  var confirmando = null;
+
+  function pedirConfirmacion(){
+    bClear.textContent = '¿Borrar todo?';
+    bClear.classList.add('btn-pencil');
+    confirmando = setTimeout(cancelarConfirmacion, 3500);
+  }
+  function cancelarConfirmacion(){
+    clearTimeout(confirmando);
+    confirmando = null;
+    bClear.textContent = 'Nuevo';
+    bClear.classList.remove('btn-pencil');
+  }
+
+  function empezarDeNuevo(){
+    editor.innerHTML = '';
+    editorX.innerHTML = '';
+    locItems = {}; locOrden = []; locFirma = null;
+    fecItems = {}; fecOrden = []; fecFirma = null;
+    locManual.value = '';
+    previo = null;
+    iaOriginalTexto = null;
+    intentos = 0;
+    iaPrompt.value = '';
+    bVolver.hidden = true;
+    etiquetaIA();
+    nota('La key se guarda en este navegador y va directo a OpenAI, sin pasar por ningún servidor propio. Destildá “recordar” si la máquina es compartida.');
+    sync();
+    syncX();
+    dibujarLista();
+    dibujarFechas();
+    editor.focus();
+  }
+
+  bClear.addEventListener('click', function(){
+    var vacio = !editor.textContent.trim() && !locOrden.length;
+    if(vacio || confirmando){
+      cancelarConfirmacion();
+      empezarDeNuevo();
+    } else {
+      pedirConfirmacion();
+    }
+  });
+
+  editor.addEventListener('input', sync);
+  editor.addEventListener('keydown', function(ev){
+    if(ev.key === 'Enter' && !ev.shiftKey && !ev.metaKey && !ev.ctrlKey){
+      if(continuarLista(ev)) return;
+    }
+    var mod = ev.metaKey || ev.ctrlKey;
+    if(!mod) return;
+    var k = ev.key.toLowerCase();
+    if(k === 'b'){ ev.preventDefault(); cmd('bold'); }
+    if(k === 'i'){ ev.preventDefault(); cmd('italic'); }
+  });
+
+  // pegar siempre como texto plano
+  editor.addEventListener('paste', function(ev){
+    ev.preventDefault();
+    var t = (ev.clipboardData || window.clipboardData).getData('text/plain');
+    t = t.replace(/\r\n?/g,'\n');
+    var partes = t.split('\n');
+    var frag = document.createDocumentFragment();
+    partes.forEach(function(p, idx){
+      if(idx) frag.appendChild(document.createElement('br'));
+      if(p) frag.appendChild(document.createTextNode(p));
+    });
+    var sel = window.getSelection();
+    if(!sel.rangeCount) return;
+    var range = sel.getRangeAt(0);
+    range.deleteContents();
+    range.insertNode(frag);
+    sel.collapseToEnd();
+    limpiarTipografia();    // comillas curvas, rayas, puntos suspensivos
+    detectarTablas();       // columnas alineadas -> monoespaciado
+    convertirTitulos(null); // títulos en mayúsculas -> caja normal + negrita
+    detectar();             // cursiva en los textuales
+    previo = null; iaOriginalTexto = null; intentos = 0;  // texto nuevo, original nuevo
+    bVolver.hidden = true;
+    etiquetaIA();
+    traerAX();              // el mismo texto queda listo en X
+  });
+
+  /* ---------- WhatsApp / Telegram ---------- */
+  var bFmtWa = document.getElementById('bFmtWa');
+  var bFmtTg = document.getElementById('bFmtTg');
+  var chat = document.querySelector('.chat');
+  var legendaFormato = document.getElementById('legendaFormato');
+
+  var LEYENDAS = {
+    wa: 'WhatsApp lee <code>*negrita*</code>, <code>_cursiva_</code>, <code>~tachado~</code>, viñetas <code>- </code>, numeradas <code>1. </code> (hasta 99) y citas <code>&gt; </code>.',
+    tg: 'Telegram usa marcadores dobles: <code>**negrita**</code>, <code>__cursiva__</code>, <code>~~tachado~~</code> y <code>```monoespaciado```</code>. Las viñetas <code>- </code> se ven como guiones, no arma lista.'
+  };
+
+  function ponerFormato(f){
+    formato = (f === 'tg') ? 'tg' : 'wa';
+    bFmtWa.setAttribute('aria-pressed', formato === 'wa');
+    bFmtTg.setAttribute('aria-pressed', formato === 'tg');
+    chat.className = 'chat' + (formato === 'tg' ? ' tg' : '');
+    legendaFormato.innerHTML = LEYENDAS[formato];
+    ROTULO_BASE = (formato === 'tg')
+      ? 'Fechas detectadas · Telegram no las hace tocables: se agrega el link de Google Calendar'
+      : 'Fechas detectadas · el teléfono ya las hace tocables; tildá cuáles señalar con 🔔 en el cuerpo';
+    fecRotulo.textContent = ROTULO_BASE;
+    fecRotulo.className = 'fec-rotulo';
+    contarFechas();
+    guardarCfg();
+    sync();
+  }
+
+  bFmtWa.addEventListener('click', function(){ ponerFormato('wa'); });
+  bFmtTg.addEventListener('click', function(){ ponerFormato('tg'); });
+
+  /* ---------- límite de caracteres ---------- */
+  var limite   = document.getElementById('limite');
+  var limNum   = document.getElementById('limNum');
+  var limTipo  = document.getElementById('limTipo');
+  var limFoto  = document.getElementById('limFoto');
+  var bAjustar = document.getElementById('bAjustar');
+  var alertaLimite = document.getElementById('alertaLimite');
+  var alertaTexto  = document.getElementById('alertaTexto');
+  var LIMITE_WA = 65536;   // WhatsApp: en la práctica no molesta
+  var LIM_FOTO = 1024;     // pie de foto en Telegram
+  var limParaAjustar = null;
+
+  function limiteActual(){
+    return (formato === 'tg') ? (parseInt(limTipo.value, 10) || 4096) : LIMITE_WA;
+  }
+
+  function pintarLimite(){
+    var n = salida.textContent.length;
+    var lim = limiteActual();
+    limNum.textContent = n.toLocaleString('es-AR') + ' / ' + lim.toLocaleString('es-AR') + ' caracteres';
+    limTipo.hidden = (formato !== 'tg');
+    // en Telegram, un posteo con foto tiene la cuarta parte del espacio
+    var avisaFoto = (formato === 'tg' && lim > LIM_FOTO && n > LIM_FOTO);
+    limFoto.hidden = true;
+    if(avisaFoto){
+      limFoto.textContent = 'si va con foto se pasa por ' + (n - LIM_FOTO).toLocaleString('es-AR');
+    }
+    var estado = (n > lim) ? ' pasado' : (n > lim * 0.9 ? ' cerca' : '');
+    limite.className = 'limite' + estado;
+    if(n > lim){
+      limParaAjustar = lim;
+      alertaTexto.textContent = 'El texto supera el límite de ' + lim.toLocaleString('es-AR') +
+        ' caracteres de ' + (formato === 'tg' ? 'Telegram' : 'WhatsApp') +
+        ' por ' + (n - lim).toLocaleString('es-AR') + '.';
+      alertaLimite.className = 'alerta-limite';
+    } else if(avisaFoto){
+      limParaAjustar = LIM_FOTO;
+      alertaTexto.textContent = 'El texto entra como mensaje suelto, pero si va con foto supera el límite de ' +
+        LIM_FOTO.toLocaleString('es-AR') + ' por ' + (n - LIM_FOTO).toLocaleString('es-AR') + '.';
+      alertaLimite.className = 'alerta-limite aviso';
+    } else {
+      limParaAjustar = null;
+    }
+    var hayQueAvisar = (limParaAjustar !== null);
+    alertaLimite.hidden = !hayQueAvisar;
+    bAjustar.hidden = !hayQueAvisar;
+    if(hayQueAvisar){
+      bAjustar.textContent = 'Ajustar a ' + limParaAjustar.toLocaleString('es-AR') + ' con IA';
+      iaLargo.value = objetivoParaLimite(limParaAjustar);   // listo aunque reduzcas a mano
+    }
+  }
+
+  // los marcadores de Telegram son dobles: el pedido a la IA descuenta esa diferencia
+  function objetivoParaLimite(lim){
+    var actual = salida.textContent.length;
+    var enWa = waFromModel(modelFromDom(editor), 'wa').length;
+    var recargo = Math.max(0, actual - enWa);
+    return Math.max(150, lim - recargo - 20);
+  }
+
+  limTipo.addEventListener('change', function(){ guardarCfg(); pintarLimite(); });
+  bReducirLim.addEventListener('click', function(){ if(!bAjustar.disabled) bAjustar.click(); });
+  bAjustar.addEventListener('click', function(){
+    if(!apiKey.value.trim()){ nota('Pegá tu API key de OpenAI para que la IA pueda ajustar el largo.', 'error'); apiKey.focus(); return; }
+    iaLargo.value = objetivoParaLimite(limParaAjustar || limiteActual());
+    reducir();
+  });
+
+  /* ---------- copiar ---------- */
+  var bCopy = document.getElementById('bCopy');
+  bCopy.addEventListener('click', function(){
+    var txt = salida.textContent;
+    if(!txt){ return; }
+    var listo = function(){
+      var antes = bCopy.textContent;
+      bCopy.textContent = 'Copiado';
+      setTimeout(function(){ bCopy.textContent = antes; }, 1400);
+    };
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(txt).then(listo, fallback);
+    } else fallback();
+
+    function fallback(){
+      var ta = document.createElement('textarea');
+      ta.value = txt; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try{ document.execCommand('copy'); listo(); }catch(e){}
+      document.body.removeChild(ta);
+    }
+  });
+
+  /* ---------- hora de la burbuja ---------- */
+  var ahora = new Date();
+  document.getElementById('hora').textContent =
+    String(ahora.getHours()).padStart(2,'0') + ':' + String(ahora.getMinutes()).padStart(2,'0');
+
+  /* ---------- el mismo texto en los dos editores ---------- */
+  function copiarEntre(desde, hacia, balaDestino){
+    var lineas = toLines(modelFromDom(desde)).map(function(linea){
+      var t = textoLinea(linea);
+      var m = RX_PREF.exec(t);
+      if(m && tipoDePrefijo(t) === 'vineta'){
+        return charsDe(balaDestino).concat(linea.slice(m[0].length));
+      }
+      return linea;
+    });
+    hacia.innerHTML = domFromModel(unirLineas(lineas));
+  }
+
+  var ultimoSincro = null;   // texto de WhatsApp la última vez que se pasó a X
+
+  function textoDe(el){
+    return modelFromDom(el).map(function(c){ return c.ch; }).join('');
+  }
+
+  function traerAX(){
+    copiarEntre(editor, editorX, '\u2022 ');
+    ultimoSincro = textoDe(editor);
+    syncX();
+  }
+  function traerAWa(){
+    copiarEntre(editorX, editor, '- ');
+    locFirma = null; fecFirma = null;
+    convertirTitulos(null);   // los automatismos corren siempre del lado de WhatsApp
+    detectar();               // detectar() ya llama a sync()
+    ultimoSincro = textoDe(editor);
+  }
+
+  /* ---------- pestañas ---------- */
+  var tabWa = document.getElementById('tabWa');
+  var tabX  = document.getElementById('tabX');
+  var tabTapa = document.getElementById('tabTapa');
+  var vistaWa = document.getElementById('vistaWa');
+  var vistaX  = document.getElementById('vistaX');
+  var vistaTapa = document.getElementById('vistaTapa');
+
+  var LEDES = {
+    wa: 'Al pegar, los textuales entre comillas salen en cursiva solos. Todo lo demás lo decidís vos: negritas, tachados, viñetas, citas. Del otro lado sale el texto con el markup que WhatsApp o Telegram entienden.',
+    x:  'Seleccioná texto en el post y aparecen las opciones sobre el cursor. Del otro lado se ve cómo queda, listo para copiar con formato o en Unicode.',
+    tapa: 'Subí la foto de la tapa de un diario y sale el posteo armado: título en negrita, de uno a tres bullets por nota y un renglón vacío debajo para pegar el link.'
+  };
+
+  function verPestana(cual){
+    if(cual !== 'x' && cual !== 'tapa') cual = 'wa';
+    vistaWa.hidden   = (cual !== 'wa');
+    vistaX.hidden    = (cual !== 'x');
+    vistaTapa.hidden = (cual !== 'tapa');
+    tabWa.setAttribute('aria-pressed', cual === 'wa');
+    tabX.setAttribute('aria-pressed', cual === 'x');
+    tabTapa.setAttribute('aria-pressed', cual === 'tapa');
+    burbujaX.hidden = true;
+    document.getElementById('lede').textContent = LEDES[cual];
+    try{ localStorage.setItem('wa-editor-tab', cual); }catch(e){}
+    // al entrar a X se traen los cambios hechos en WhatsApp (mapas, agenda, ediciones).
+    // Lo que borres en X queda borrado: no vuelve hasta que WhatsApp cambie de nuevo.
+    if(cual === 'x'){
+      var actual = textoDe(editor);
+      if(actual.trim() && actual !== ultimoSincro) traerAX();
+      syncX();
+    } else if(cual === 'wa'){
+      if(!editor.textContent.trim() && editorX.textContent.trim()) traerAWa();
+      sync();
+    }
+  }
+  tabWa.addEventListener('click', function(){ verPestana('wa'); });
+  tabX.addEventListener('click',  function(){ verPestana('x'); });
+  tabTapa.addEventListener('click', function(){ verPestana('tapa'); });
+
+  /* ---------- editor X ---------- */
+  var editorX  = document.getElementById('editorX');
+  var salidaX  = document.getElementById('salidaX');
+  var burbujaX = document.getElementById('burbujaX');
+  var xNum = document.getElementById('xNum');
+  var xLim = document.getElementById('xLim');
+  var xPeso = document.getElementById('xPeso');
+  var xTipo = document.getElementById('xTipo');
+  var xAviso = document.getElementById('xAviso');
+  var pieX = editorX.parentNode.querySelector('.foot');
+
+  // alfabetos matemáticos: sans-serif negrita, cursiva y negrita cursiva
+  var BASES = {
+    b:  {A:0x1D5D4, a:0x1D5EE, d:0x1D7EC},
+    i:  {A:0x1D608, a:0x1D622, d:null},
+    bi: {A:0x1D63C, a:0x1D656, d:0x1D7EC},
+    m:  {A:0x1D670, a:0x1D68A, d:0x1D7F6}
+  };
+
+  // los alfabetos matemáticos no tienen á é í ó ú ü ñ:
+  // se arma la letra base y se le suma la tilde como marca combinante
+  var ACENTOS = {
+    'á':['a','\u0301'], 'é':['e','\u0301'], 'í':['i','\u0301'], 'ó':['o','\u0301'], 'ú':['u','\u0301'],
+    'ü':['u','\u0308'], 'ñ':['n','\u0303'],
+    'Á':['A','\u0301'], 'É':['E','\u0301'], 'Í':['I','\u0301'], 'Ó':['O','\u0301'], 'Ú':['U','\u0301'],
+    'Ü':['U','\u0308'], 'Ñ':['N','\u0303']
+  };
+
+  function aUnicode(txt, st){
+    var base = st.m ? BASES.m : (st.b && st.i) ? BASES.bi : st.b ? BASES.b : st.i ? BASES.i : null;
+    if(!base && !st.s) return txt;
+    var out = '';
+    for(var k=0;k<txt.length;k++){
+      var c = txt.charAt(k), r = c, tilde = '';
+      if(ACENTOS[c] && base){ tilde = ACENTOS[c][1]; c = ACENTOS[c][0]; }
+      var cod = c.charCodeAt(0);
+      if(base){
+        if(c >= 'A' && c <= 'Z') r = String.fromCodePoint(base.A + (cod - 65));
+        else if(c >= 'a' && c <= 'z') r = String.fromCodePoint(base.a + (cod - 97));
+        else if(c >= '0' && c <= '9' && base.d) r = String.fromCodePoint(base.d + (cod - 48));
+        else r = c;
+        r += tilde;
+      }
+      out += r;
+      if(st.s && c !== ' ') out += '\u0336';   // tachado: combinante sobre cada letra
+    }
+    return out;
+  }
+
+  function xDesdeModelo(model){
+    return toLines(model).map(function(line){
+      var out = '', i = 0;
+      while(i < line.length){
+        var k = keyWa(line[i]), txt = '', st = line[i];
+        while(i < line.length && keyWa(line[i]) === k){ txt += line[i].ch; i++; }
+        out += aUnicode(txt, st);
+      }
+      return out;
+    }).join('\n');
+  }
+
+  // X cuenta por punto de código y lo que está fuera del plano básico pesa doble
+  function pesoX(s){
+    var n = 0;
+    for(var i=0;i<s.length;i++){
+      var cod = s.codePointAt(i);
+      if(cod > 0xFFFF){ n += 2; i++; } else n += 1;
+    }
+    return n;
+  }
+
+  function syncX(){
+    var model = modelFromDom(editorX);
+    var plano = model.map(function(c){ return c.ch; }).join('');
+    var uni = xDesdeModelo(model);
+    salidaX.textContent = uni;
+
+    var lim = parseInt(xTipo.value, 10) || 280;
+    var nPlano = pesoX(plano), nUni = pesoX(uni);
+    xNum.textContent = nPlano.toLocaleString('es-AR');
+    xLim.textContent = lim.toLocaleString('es-AR');
+    xPeso.textContent = (nUni !== nPlano) ? ' · en Unicode pesa ' + nUni.toLocaleString('es-AR') : '';
+    pieX.className = 'foot' + ((nPlano > lim || nUni > lim) ? ' pasado' : '');
+
+    var acentos = /[áéíóúüñÁÉÍÓÚÜÑ]/.test(plano) && uni !== plano;
+    xAviso.textContent = acentos
+      ? 'Los acentos y la ñ se arman con tilde combinante: mirá la vista previa antes de publicar.'
+      : '';
+  }
+
+  editorX.addEventListener('input', syncX);
+  xTipo.addEventListener('change', syncX);
+
+  editorX.addEventListener('paste', function(ev){
+    ev.preventDefault();
+    var t = (ev.clipboardData || window.clipboardData).getData('text/plain').replace(/\r\n?/g,'\n');
+    var frag = document.createDocumentFragment();
+    t.split('\n').forEach(function(p, idx){
+      if(idx) frag.appendChild(document.createElement('br'));
+      if(p) frag.appendChild(document.createTextNode(p));
+    });
+    var sel = window.getSelection();
+    if(!sel.rangeCount) return;
+    var r = sel.getRangeAt(0);
+    r.deleteContents(); r.insertNode(frag); sel.collapseToEnd();
+    syncX();
+    traerAWa();   // detecta títulos y textuales del lado de WhatsApp
+    traerAX();    // y los trae de vuelta con el formato ya aplicado
+    var m = modelFromDom(editorX);
+    ponerSeleccion(m, m.length, m.length, editorX);
+    syncX();
+  });
+
+  editorX.addEventListener('keydown', function(ev){
+    if(ev.key === 'Enter' && !ev.shiftKey && !ev.metaKey && !ev.ctrlKey){
+      if(continuarLista(ev, OPTS_X)) return;
+    }
+    if(!(ev.metaKey || ev.ctrlKey)) return;
+    var k = ev.key.toLowerCase();
+    if(k === 'b'){ ev.preventDefault(); comandoBurbuja('bold'); }
+    if(k === 'i'){ ev.preventDefault(); comandoBurbuja('italic'); }
+  });
+
+  /* --- barra flotante sobre la selección --- */
+  var OPTS_X  = {el: editorX, bala: '\u2022 ', sync: function(){ syncX(); ubicarBurbuja(); }};
+  var OPTS_WA = {el: editor,  bala: '- ',      sync: function(){ sync();  ubicarBurbuja(); }};
+
+  // la burbuja sirve a los dos editores: manda dónde está la selección
+  function contextoBurbuja(){
+    var sel = window.getSelection();
+    if(!sel || sel.rangeCount === 0 || sel.isCollapsed) return null;
+    var nodo = sel.getRangeAt(0).commonAncestorContainer;
+    if(!vistaX.hidden  && editorX.contains(nodo)) return OPTS_X;
+    if(!vistaWa.hidden && editor.contains(nodo))  return OPTS_WA;
+    return null;
+  }
+
+  function comandoBurbuja(cmd){
+    var ctx = contextoBurbuja() || (vistaX.hidden ? OPTS_WA : OPTS_X);
+    ctx.el.focus();
+    try{ document.execCommand(cmd, false, null); }catch(e){}
+    ctx.sync();
+    estadoBurbuja();
+  }
+
+  Array.prototype.forEach.call(burbujaX.querySelectorAll('button'), function(b){
+    b.addEventListener('mousedown', function(ev){ ev.preventDefault(); });
+    b.addEventListener('click', function(){
+      var lista = b.getAttribute('data-lista');
+      if(b.getAttribute('data-mono')) toggleMono(contextoBurbuja() || (vistaX.hidden ? OPTS_WA : OPTS_X));
+      else if(b.getAttribute('data-titulo')) tituloDeSeleccion();
+      else if(lista) togglePrefijo(lista, contextoBurbuja() || (vistaX.hidden ? OPTS_WA : OPTS_X));
+      else comandoBurbuja(b.getAttribute('data-cmd'));
+    });
+  });
+
+  function toggleMono(opts){
+    var el = opts.el;
+    var st = leerModelo(el);
+    var a = Math.min(st.ini, st.fin), b = Math.max(st.ini, st.fin);
+    if(a === b){                       // sin selección: toda la línea del cursor
+      var ls = toLines(st.model);
+      var pos = posDeIndice(ls, a);
+      if(!ls[pos.line] || !ls[pos.line].length) return;
+      a = indiceDePos(ls, pos.line, 0);
+      b = a + ls[pos.line].length;
+    }
+    var todos = true;
+    for(var k=a;k<b;k++) if(!st.model[k].m) todos = false;
+    for(k=a;k<b;k++) st.model[k].m = !todos;
+    el.innerHTML = domFromModel(st.model);
+    ponerSeleccion(st.model, a, b, el);
+    opts.sync();
+  }
+
+  function estadoBurbuja(){
+    Array.prototype.forEach.call(burbujaX.querySelectorAll('button'), function(b){
+      var cmd = b.getAttribute('data-cmd');
+      if(!cmd || cmd === 'removeFormat') return;
+      try{ b.setAttribute('aria-pressed', document.queryCommandState(cmd)); }catch(e){}
+    });
+  }
+
+  function ubicarBurbuja(){
+    var ctx = contextoBurbuja();
+    if(!ctx){ burbujaX.hidden = true; return; }
+    var sel = window.getSelection();
+    var r = null;
+    try{ r = sel.getRangeAt(0).getBoundingClientRect(); }catch(e){}
+    if(!r || (!r.width && !r.height)){ burbujaX.hidden = true; return; }
+
+    // la cita solo existe en WhatsApp y Telegram
+    Array.prototype.forEach.call(burbujaX.querySelectorAll('[data-solo="wa"]'), function(b){
+      b.hidden = (ctx !== OPTS_WA);
+    });
+
+    burbujaX.hidden = false;
+    var b = burbujaX.getBoundingClientRect();
+    var x = r.left + r.width / 2 - b.width / 2 + window.pageXOffset;
+    var y = r.top - b.height - 10 + window.pageYOffset;
+    burbujaX.style.left = Math.max(8, x) + 'px';
+    burbujaX.style.top  = Math.max(8, y) + 'px';
+    estadoBurbuja();
+  }
+
+  document.addEventListener('selectionchange', ubicarBurbuja);
+  window.addEventListener('scroll', function(){ if(!burbujaX.hidden) ubicarBurbuja(); }, true);
+  window.addEventListener('resize', function(){ if(!burbujaX.hidden) ubicarBurbuja(); });
+
+  /* --- copiar --- */
+  function avisoCopia(boton){
+    var antes = boton.textContent;
+    boton.textContent = 'Copiado';
+    setTimeout(function(){ boton.textContent = antes; }, 1400);
+  }
+
+  var bCopyX = document.getElementById('bCopyX');
+  bCopyX.addEventListener('click', function(){
+    var txt = salidaX.textContent;
+    if(!txt) return;
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(txt).then(function(){ avisoCopia(bCopyX); });
+    }
+  });
+
+  var bCopyRico = document.getElementById('bCopyRico');
+  bCopyRico.addEventListener('click', function(){
+    var html = editorX.innerHTML;
+    var plano = modelFromDom(editorX).map(function(c){ return c.ch; }).join('');
+    if(!plano.trim()) return;
+    if(window.ClipboardItem && navigator.clipboard && navigator.clipboard.write){
+      navigator.clipboard.write([new ClipboardItem({
+        'text/html':  new Blob([html],  {type:'text/html'}),
+        'text/plain': new Blob([plano], {type:'text/plain'})
+      })]).then(function(){ avisoCopia(bCopyRico); }, function(){ copiaRicaVieja(html, bCopyRico); });
+    } else {
+      copiaRicaVieja(html, bCopyRico);
+    }
+  });
+
+  function copiaRicaVieja(html, boton){
+    var caja = document.createElement('div');
+    caja.contentEditable = 'true';
+    caja.innerHTML = html;
+    caja.style.cssText = 'position:fixed;left:-9999px;top:0;white-space:pre-wrap';
+    document.body.appendChild(caja);
+    var r = document.createRange();
+    r.selectNodeContents(caja);
+    var sel = window.getSelection();
+    sel.removeAllRanges(); sel.addRange(r);
+    try{ document.execCommand('copy'); avisoCopia(boton); }catch(e){}
+    sel.removeAllRanges();
+    document.body.removeChild(caja);
+  }
+
+
+
+  /* ---------- tapa de diario: la foto entra, el posteo sale ---------- */
+  var tapaDz       = document.getElementById('tapaDz');
+  var tapaLienzo   = document.getElementById('tapaLienzo');
+  var tapaPreview  = document.getElementById('tapaPreview');
+  var tapaFile     = document.getElementById('tapaFile');
+  var tapaKey      = document.getElementById('tapaKey');
+  var tapaModelo   = document.getElementById('tapaModelo');
+  var tapaEstado   = document.getElementById('tapaEstado');
+  var salidaTapa   = document.getElementById('salidaTapa');
+  var tapaNum      = document.getElementById('tapaNum');
+  var bTapaLeer    = document.getElementById('bTapaLeer');
+  var bTapaElegir  = document.getElementById('bTapaElegir');
+  var bTapaLimpiar = document.getElementById('bTapaLimpiar');
+  var bTapaCopy    = document.getElementById('bTapaCopy');
+  var bTapaEditor  = document.getElementById('bTapaEditor');
+  var bTapaVerKey  = document.getElementById('bTapaVerKey');
+  var LS_TAPA_MOD  = 'wa-editor-tapa-modelo';
+  var tapaImagen   = null;
+  var tapaTimer    = null, t0Tapa = 0;
+
+  var SISTEMA_TAPA = [
+    'Sos un editor de Incertis. Recibís la foto de la tapa de un diario y devolvés un único texto listo para publicar en WhatsApp.',
+    '',
+    'TAREA',
+    '1. Recorré la tapa entera, de arriba a abajo y de izquierda a derecha, y hacé la lista de TODOS los títulos de notas.',
+    '2. EXCLUÍ únicamente los módulos de la franja superior, la que está por encima de la línea con la fecha y el precio: son avances, van en módulos chicos con foto de rostro, a la izquierda o a la derecha del logo. Todo lo que está por debajo de esa línea entra.',
+    '3. Ordená las notas por jerarquía visual: título principal, después la columna derecha de arriba hacia abajo, después la nota de la foto central, después las notas del pie.',
+    '4. Para cada nota, leé la bajada y el copete completos y extraé la información clave.',
+    '5. Escribí entre uno y tres bullets por nota, según lo que la bajada realmente aporte.',
+    '',
+    'NINGUNA NOTA SE OMITE',
+    '- Van todas, no solo las grandes. Una tapa de diario suele tener entre cinco y diez notas debajo del cabezal.',
+    '- Entran también: las notas chicas de una sola columna, las que van sin foto, las que tienen apenas dos o tres líneas de bajada, las que cuelgan debajo de otra nota más grande y las del pie de página.',
+    '- Si un título tiene bajada propia, es una nota aparte y lleva su propio bloque, aunque esté pegado a la nota de arriba y comparta la foto.',
+    '- Si una nota no tiene bajada, va igual: título solo, sin bullets.',
+    '- No agrupes dos notas en un mismo bloque ni resumas varias en un bullet.',
+    '- No confundas el epígrafe de una foto (el texto en negrita sobre la imagen o al costado, que describe lo que se ve) con un título de nota: el epígrafe no lleva bloque propio.',
+    '',
+    'CUÁNTOS BULLETS',
+    '- Tres bullets solo si hay tres ideas distintas que se sostienen solas.',
+    '- Dos si hay dos. Uno si la bajada aporta un único dato.',
+    '- Nunca inventes ni estires un bullet para llegar a tres. Un bullet de relleno arruina la nota entera.',
+    '- Cuenta como idea propia: una cifra y lo que mide, un nombre propio y lo que hizo, una consecuencia concreta, un plazo o una fecha de aplicación, una reacción o una respuesta de la otra parte.',
+    '',
+    'CÓMO SE ESCRIBE UN BULLET',
+    '- Es una oración completa, con verbo conjugado, que se entiende sola sin haber leído el título.',
+    '- Entre 10 y 25 palabras. Termina con punto.',
+    '- Prohibido el estilo telegráfico: no saques artículos, verbos, preposiciones ni conectores para ahorrar palabras. "Aumento del 32% en luz" está mal; "La luz aumenta 32% desde septiembre y alcanza a 4,1 millones de hogares" está bien.',
+    '- Contextualizá el dato: una cifra suelta no dice nada, hay que decir qué mide, desde cuándo o a quiénes alcanza.',
+    '- No repitas lo que ya dice el título: el bullet suma lo que el título no cuenta.',
+    '- Priorizá en este orden: cifras, nombres propios, consecuencia, contexto.',
+    '- Español rioplatense, registro neutro de diario. Sin adjetivos valorativos propios.',
+    '- Si un dato de la tapa está borroso o dudoso, omitilo. No lo aproximes.',
+    '- No agregues información que no esté en la imagen.',
+    '',
+    'FIDELIDAD AL TEXTO DE LA TAPA',
+    '- Las cifras, los resultados deportivos, los montos, los porcentajes, las fechas y los nombres se copian exactamente como figuran en la bajada. No los redondees ni los reformules de memoria.',
+    '- Si la bajada dice "pasaba a perder 2-0", el bullet dice eso y no otro resultado.',
+    '- No completes con lo que sabés del tema por fuera de la tapa, aunque estés seguro. Si la bajada no lo dice, no va.',
+    '- Ante la duda entre dos lecturas de un dato, dejá el dato afuera y escribí el bullet con lo que sí se lee.',
+    '',
+    'FORMATO DE SALIDA (crítico)',
+    '- Negrita de WhatsApp: UN solo asterisco a cada lado. *así*',
+    '- PROHIBIDO usar doble asterisco, almohadillas, guiones bajos o cualquier markdown que no sea WhatsApp.',
+    '- PROHIBIDO usar emojis, íconos, símbolos decorativos o viñetas de fantasía en cualquier parte del texto.',
+    '- Bullets con el carácter • seguido de espacio. Nunca con guion ni asterisco.',
+    '- Después del último bullet de cada nota va una línea vacía, reservada para pegar el link, y después otra línea vacía antes del título siguiente. O sea: dos líneas vacías entre una nota y la que sigue.',
+    '- No pongas número de página.',
+    '',
+    'ESTRUCTURA EXACTA (las líneas VACÍAS marcadas son obligatorias)',
+    '*[NOMBRE DEL DIARIO EN MAYÚSCULAS]* — [fecha tal como figura en la tapa]',
+    '(línea vacía)',
+    '*[Título 1 textual de la tapa]*',
+    '• [bullet]',
+    '• [bullet]',
+    '(línea vacía: acá va el link)',
+    '(línea vacía)',
+    '*[Título 2 textual de la tapa]*',
+    '• [bullet]',
+    '(línea vacía: acá va el link)',
+    '(línea vacía)',
+    '[y así con todas las notas]',
+    '',
+    'Donde dice (línea vacía) va una línea realmente vacía, sin texto, sin paréntesis y sin ningún símbolo.',
+    '',
+    'CHEQUEO ANTES DE RESPONDER',
+    '- Volvé a mirar la tapa y contá los títulos que hay debajo de la franja superior. Si tu texto tiene menos bloques que esa cuenta, te faltan notas: agregalas.',
+    '- Revisá especialmente la parte de abajo de cada columna y los espacios entre notas grandes: ahí es donde se esconden las notas chicas.',
+    '- Verificá que ningún bullet contradiga la bajada y que ningún bullet repita el título.',
+    '',
+    'SALIDA',
+    'Devolvé únicamente el texto final. Sin introducción, sin explicación, sin cierre, sin comentarios sobre lo que hiciste.'
+  ].join('\n');
+
+  function notaTapa(msg, clase){
+    tapaEstado.textContent = msg;
+    tapaEstado.className = 'ia-nota' + (clase ? ' ' + clase : '');
+  }
+
+  /* --- la key es la misma que la de reducir con IA: se escriben entre ellas --- */
+  tapaKey.value = apiKey.value;
+  tapaKey.addEventListener('input', function(){
+    apiKey.value = tapaKey.value;
+    guardarKey();
+  });
+  apiKey.addEventListener('input', function(){ tapaKey.value = apiKey.value; });
+  bTapaVerKey.addEventListener('click', function(){
+    var oculta = tapaKey.type === 'password';
+    tapaKey.type = oculta ? 'text' : 'password';
+    bTapaVerKey.textContent = oculta ? 'ocultar' : 'ver';
+  });
+
+  var modGuardado = leer(LS_TAPA_MOD);
+  if(modGuardado) tapaModelo.value = modGuardado;
+  tapaModelo.addEventListener('input', function(){ guardar(LS_TAPA_MOD, tapaModelo.value.trim()); });
+
+  /* --- carga de la foto: clic, arrastre o pegado --- */
+  function tapaAchicar(dataURL, cb){
+    // la API tilea la imagen: arriba de 2048 px no gana detalle y el envío se hace lento
+    var img = new Image();
+    img.onload = function(){
+      var mayor = Math.max(img.width, img.height);
+      if(mayor <= 2048){ cb(dataURL); return; }
+      var esc = 2048 / mayor;
+      var c = document.createElement('canvas');
+      c.width  = Math.round(img.width  * esc);
+      c.height = Math.round(img.height * esc);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      cb(c.toDataURL('image/jpeg', 0.92));
+    };
+    img.onerror = function(){ cb(dataURL); };
+    img.src = dataURL;
+  }
+
+  function tapaCargar(file){
+    if(!file || file.type.indexOf('image/') !== 0){
+      notaTapa('Eso no es una imagen. Subí la foto de la tapa en JPG o PNG.', 'error');
+      return;
+    }
+    var fr = new FileReader();
+    fr.onload = function(){
+      tapaAchicar(fr.result, function(url){
+        tapaImagen = url;
+        tapaPreview.src = url;
+        tapaLienzo.hidden = false;
+        tapaDz.hidden = true;
+        bTapaLeer.disabled = false;
+        notaTapa('Tapa cargada (' + Math.round(url.length / 1365) + ' KB). Dale a «Leer la tapa».');
+      });
+    };
+    fr.onerror = function(){ notaTapa('No se pudo leer el archivo.', 'error'); };
+    fr.readAsDataURL(file);
+  }
+
+  tapaDz.addEventListener('click', function(){ tapaFile.click(); });
+  bTapaElegir.addEventListener('click', function(){ tapaFile.click(); });
+  tapaPreview.addEventListener('click', function(){ tapaFile.click(); });
+  tapaFile.addEventListener('change', function(){
+    if(tapaFile.files && tapaFile.files[0]) tapaCargar(tapaFile.files[0]);
+  });
+  ['dragenter','dragover'].forEach(function(ev){
+    tapaDz.addEventListener(ev, function(e){ e.preventDefault(); tapaDz.classList.add('encima'); });
+  });
+  ['dragleave','drop'].forEach(function(ev){
+    tapaDz.addEventListener(ev, function(e){ e.preventDefault(); tapaDz.classList.remove('encima'); });
+  });
+  tapaDz.addEventListener('drop', function(e){
+    if(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) tapaCargar(e.dataTransfer.files[0]);
+  });
+  document.addEventListener('paste', function(e){
+    if(vistaTapa.hidden) return;                    // en las otras pestañas manda el editor
+    var items = e.clipboardData && e.clipboardData.items;
+    if(!items) return;
+    for(var i=0;i<items.length;i++){
+      if(items[i].type.indexOf('image/') === 0){
+        e.preventDefault();
+        tapaCargar(items[i].getAsFile());
+        return;
+      }
+    }
+  });
+
+  /* --- normalización: lo que vuelve tiene que ser markup de WhatsApp, no markdown --- */
+  // emojis y pictogramas: los bloques del plano astral más los símbolos sueltos del BMP.
+  // La viñeta • (U+2022) y la raya — (U+2014) quedan afuera a propósito: no son emojis.
+  var RX_EMOJI = new RegExp(
+    '(?:[\\uD83C-\\uD83E][\\uDC00-\\uDFFF])' +          // 🏷 📰 🔗 y todo el plano astral
+    '|[\\u200D\\uFE0E\\uFE0F\\u20E3]' +                 // uniones y selectores de variante
+    '|[\\u203C\\u2049\\u2122\\u2139]' +                 // ‼ ⁉ ™ ℹ
+    '|[\\u2194-\\u21AA\\u231A-\\u231B\\u2328]' +        // flechas de emoji y relojes
+    '|[\\u23CF-\\u23FA\\u24C2\\u25AA-\\u25FE]' +        // controles, Ⓜ, cuadraditos
+    '|[\\u2600-\\u27BF\\u2934-\\u2935\\u2B00-\\u2BFF]' +// ☀ a ➿, flechas curvas, ⬛ ⭐
+    '|[\\u3030\\u303D\\u3297\\u3299]', 'g');
+
+  function formatoTapa(t){
+    t = String(t || '').trim()
+         .replace(/^```[a-zA-Z]*\s*\n?/, '')          // por si vino envuelto en bloque de código
+         .replace(/\n?```\s*$/, '')
+         .trim();
+    t = t.replace(/\*\*\*([\s\S]+?)\*\*\*/g, '*$1*');
+    t = t.replace(/\*\*([\s\S]+?)\*\*/g, '*$1*');
+    t = t.replace(/^[ \t]*#{1,6}[ \t]*/gm, '');       // encabezados markdown
+    t = t.replace(/^[ \t]*[-–—*·][ \t]+/gm, '• ');    // guiones y asteriscos de lista
+    t = t.replace(/__([^_\n]+)__/g, '$1');
+    t = t.replace(/(^|\s)_([^_\n]+)_(?=\s|$)/g, '$1$2');
+    t = t.replace(RX_EMOJI, '');                      // red de seguridad: acá no van emojis
+    t = t.replace(/^[ \t]*\(línea vacía[^)]*\)[ \t]*$/gim, '');  // si copió el molde literal
+    t = t.replace(/^[ \t]+/gm, '');                   // sangrías que quedaron al sacar el emoji
+    t = t.replace(/[ \t]+$/gm, '');
+    t = t.replace(/^•[ \t]*/gm, '• ');
+    t = t.replace(/\n{4,}/g, '\n\n\n');               // dos vacías como máximo: link + separación
+    return t.trim() + '\n';                           // la última nota también se lleva su renglón de link
+  }
+
+  function pintarTapa(txt){
+    salidaTapa.textContent = txt;
+    tapaNum.textContent = txt.length.toLocaleString('es-AR') + ' caracteres';
+  }
+
+  function tapaCargando(on){
+    if(on){
+      t0Tapa = Date.now();
+      bTapaLeer.disabled = true;
+      bTapaLeer.innerHTML = '<span class="spin"></span>Leyendo <span id="tapaSeg">0s</span>';
+      tapaTimer = setInterval(function(){
+        var e = document.getElementById('tapaSeg');
+        if(e) e.textContent = Math.round((Date.now() - t0Tapa) / 1000) + 's';
+      }, 250);
+    } else {
+      if(tapaTimer){ clearInterval(tapaTimer); tapaTimer = null; }
+      bTapaLeer.disabled = !tapaImagen;
+      bTapaLeer.textContent = 'Leer la tapa';
+    }
+  }
+
+  bTapaLeer.addEventListener('click', function(){
+    var key = tapaKey.value.trim() || apiKey.value.trim();
+    if(!key){ notaTapa('Pegá tu API key de OpenAI para usar esta función.', 'error'); tapaKey.focus(); return; }
+    if(!tapaImagen){ notaTapa('Falta la foto de la tapa.', 'error'); return; }
+
+    var modelo = tapaModelo.value.trim() || 'gpt-4o';
+    tapaCargando(true);
+    notaTapa('Leyendo la tapa con ' + modelo + '. Suele tardar entre 20 y 60 segundos.');
+
+    fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json', 'Authorization':'Bearer ' + key},
+      body: JSON.stringify({
+        model: modelo,
+        temperature: 0.2,
+        max_tokens: 4000,
+        messages: [
+          {role:'system', content: SISTEMA_TAPA},
+          {role:'user', content: [
+            {type:'text', text:'Esta es la tapa. Devolvé únicamente el texto final para WhatsApp.'},
+            {type:'image_url', image_url:{url: tapaImagen, detail:'high'}}
+          ]}
+        ]
+      })
+    })
+    .then(function(r){ return r.json().then(function(d){ return {ok:r.ok, d:d}; }); })
+    .then(function(res){
+      if(!res.ok){
+        var msg = res.d && res.d.error && res.d.error.message ? res.d.error.message : 'Error de la API.';
+        notaTapa('OpenAI respondió: ' + msg, 'error');
+        return;
+      }
+      var txt = res.d.choices && res.d.choices[0] && res.d.choices[0].message
+        ? res.d.choices[0].message.content : '';
+      txt = formatoTapa(txt);
+      if(!txt){ notaTapa('La respuesta vino vacía. Probá de nuevo o con otra foto.', 'error'); return; }
+      pintarTapa(txt);
+      notaTapa('Listo. Revisá los datos contra la tapa antes de mandar: si algo estaba borroso, quedó afuera.', 'ok');
+    })
+    .catch(function(err){
+      notaTapa('No se pudo conectar con la API: ' + err.message, 'error');
+    })
+    .then(function(){ tapaCargando(false); });
+  });
+
+  bTapaLimpiar.addEventListener('click', function(){
+    tapaImagen = null;
+    tapaFile.value = '';
+    tapaPreview.removeAttribute('src');
+    tapaLienzo.hidden = true;
+    tapaDz.hidden = false;
+    bTapaLeer.disabled = true;
+    pintarTapa('');
+    notaTapa('Listo para la próxima tapa.');
+  });
+
+  bTapaCopy.addEventListener('click', function(){
+    var txt = salidaTapa.textContent;
+    if(!txt) return;
+    var listo = function(){
+      var antes = bTapaCopy.textContent;
+      bTapaCopy.textContent = 'Copiado';
+      setTimeout(function(){ bTapaCopy.textContent = antes; }, 1400);
+    };
+    function fallback(){
+      var ta = document.createElement('textarea');
+      ta.value = txt; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try{ document.execCommand('copy'); listo(); }catch(e){}
+      document.body.removeChild(ta);
+    }
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(txt).then(listo, fallback);
+    } else fallback();
+  });
+
+  bTapaEditor.addEventListener('click', function(){
+    var txt = salidaTapa.textContent;
+    if(!txt){ notaTapa('Todavía no hay texto para pasar.', 'error'); return; }
+    // sync() y no detectar(): acá no queremos que las comillas de los títulos salgan en cursiva
+    editor.innerHTML = domFromModel(modelFromWa(txt));
+    verPestana('wa');
+    editor.focus();
+  });
+
+  document.getElementById('tapaHora').textContent =
+    document.getElementById('hora').textContent;
+
+  document.getElementById('bTraerX').addEventListener('click', traerAX);
+  document.getElementById('bTraerWa').addEventListener('click', function(){
+    traerAWa();
+    editor.focus();
+  });
+
+  syncX();
+
+  if(cfgFormato) ponerFormato(cfgFormato);
+  var tabGuardada = leer('wa-editor-tab');
+  if(tabGuardada === 'x' || tabGuardada === 'tapa') verPestana(tabGuardada);
+  sync();
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', iniciar);
+  } else {
+    iniciar();
+  }
+})();
+</script>
+
+
+</div></body></html>
