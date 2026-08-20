@@ -307,6 +307,48 @@
     font-family:var(--mono);font-size:10.5px;color:#5F7A64;margin-top:4px;
   }
   .tick{color:#3B9BE0;letter-spacing:-3px;font-size:12px}
+
+  /* ---------- visor de comparación: tapa contra transcripción ---------- */
+  .cmp{
+    position:fixed;inset:0;z-index:80;display:flex;flex-direction:column;
+    background:var(--paper);
+  }
+  .cmp[hidden]{display:none}
+  .cmp-bar{
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    padding:9px 14px;border-bottom:1px solid var(--line);background:var(--surface);
+  }
+  .cmp-bar .cmp-tit{
+    font-family:var(--display);font-size:15px;font-weight:600;margin:0 auto 0 0;
+  }
+  .cmp-sw{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .cmp-sw button{
+    font-family:var(--mono);font-size:11.5px;padding:5px 11px;border:0;cursor:pointer;
+    background:var(--surface);color:var(--ink-2);
+  }
+  .cmp-sw button[aria-pressed="true"]{background:var(--ink);color:#fff}
+  .cmp-zoom{display:flex;align-items:center;gap:4px}
+  .cmp-zoom button{
+    font-family:var(--mono);font-size:12px;min-width:28px;padding:4px 7px;cursor:pointer;
+    background:var(--surface);border:1px solid var(--line);border-radius:7px;color:var(--ink);
+  }
+  .cmp-zoom span{font-family:var(--mono);font-size:11px;color:var(--ink-3);min-width:46px;text-align:center}
+  .cmp-body{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:0;min-height:0}
+  .cmp-foto{
+    overflow:auto;background:#DDE3E6;border-right:1px solid var(--line);
+    padding:14px;text-align:center;
+  }
+  .cmp-foto img{display:block;margin:0 auto;background:#fff;box-shadow:0 2px 10px -6px rgba(19,26,33,.6)}
+  .cmp-txt{overflow:auto;background:var(--surface);padding:16px 18px}
+  .cmp-txt pre{
+    margin:0;white-space:pre-wrap;word-break:break-word;
+    font-family:var(--mono);font-size:13px;line-height:1.65;color:var(--ink);
+  }
+  .cmp-vacio{font-family:var(--mono);font-size:12px;color:var(--ink-3)}
+  @media (max-width:820px){
+    .cmp-body{grid-template-columns:1fr;grid-template-rows:45% 55%}
+    .cmp-foto{border-right:0;border-bottom:1px solid var(--line)}
+  }
   .tapa-trans{
     border-top:1px solid var(--line);
     font-family:var(--mono);font-size:12px;color:var(--ink-3);
@@ -560,6 +602,7 @@
       <section class="pane out-pane">
         <div class="pane-head">
           <p class="pane-title">Para pegar</p>
+          <button id="bTapaComparar" class="btn-quiet" disabled="">Comparar con la tapa</button>
           <button id="bTapaCopy" class="btn-pencil">Copiar</button>
         </div>
 
@@ -570,11 +613,6 @@
           </div>
         </div>
 
-        <details class="tapa-trans" id="tapaTransBox" hidden="">
-          <summary>Ver la transcripción de la tapa</summary>
-          <pre id="tapaTrans"></pre>
-        </details>
-
         <div class="limite">
           <span id="tapaNum">0 caracteres</span>
           <button id="bTapaEditor" class="btn-quiet">Pasar al editor</button>
@@ -583,7 +621,7 @@
         <div class="legend">
           <p>El texto sale con el formato de WhatsApp ya puesto: <code>*negrita*</code> con un asterisco, viñetas <code>•</code> y una línea vacía debajo de cada nota para pegar el link. Sin emojis.</p>
           <p>Cada nota lleva de uno a tres bullets, según lo que dé la bajada: son oraciones completas, no telegramas, y ninguna repite lo que ya dice el título.</p>
-          <p>El modelo trabaja en dos pasos: primero transcribe la tapa entera y después escribe el posteo solo con esa transcripción. Queda guardada en <strong>Ver la transcripción de la tapa</strong>: si un dato del posteo no aparece ahí, es un invento.</p>
+          <p>El modelo trabaja en dos pasos: primero transcribe la tapa entera y después escribe el posteo solo con esa transcripción. <strong>Comparar con la tapa</strong> abre la foto al lado del texto, con zoom, para chequear a mano: si un dato del posteo no está en la transcripción es un invento, y si está en la transcripción pero en ningún bullet, es una ausencia.</p>
           <p>Quedan afuera las notas de la franja de arriba: son avances, no van. El orden es el de la jerarquía visual de la tapa.</p>
           <p>La foto y la key van directo a OpenAI, sin pasar por ningún servidor propio. Si un dato de la tapa está borroso, el modelo lo omite en vez de aproximarlo: conviene revisar antes de mandar.</p>
           <p><b>Pasar al editor</b> lleva el texto a la pestaña de WhatsApp para retocarlo con las herramientas de siempre.</p>
@@ -606,6 +644,28 @@
     <button data-mono="1" title="Monoespaciado: alinea columnas">mono</button>
     <button data-cmd="removeFormat" title="Quitar formato">limpiar</button>
   </div>
+
+
+<div class="cmp" id="tapaCmp" hidden="" role="dialog" aria-modal="true" aria-label="Comparar la tapa con la transcripción">
+  <div class="cmp-bar">
+    <p class="cmp-tit">Comparar con la tapa</p>
+    <div class="cmp-sw" role="group" aria-label="Qué texto mostrar">
+      <button id="bCmpTrans" aria-pressed="true">Transcripción</button>
+      <button id="bCmpPost" aria-pressed="false">Posteo</button>
+    </div>
+    <div class="cmp-zoom">
+      <button id="bCmpMenos" aria-label="Alejar">−</button>
+      <span id="cmpNivel">ajustada</span>
+      <button id="bCmpMas" aria-label="Acercar">+</button>
+      <button id="bCmpFit">ajustar</button>
+    </div>
+    <button id="bCmpCerrar" class="btn-pencil">Cerrar</button>
+  </div>
+  <div class="cmp-body">
+    <div class="cmp-foto" id="cmpFoto"><img id="cmpImg" alt="Tapa del diario"></div>
+    <div class="cmp-txt"><pre id="cmpTxt"></pre></div>
+  </div>
+</div>
 
 <script>
 (function(){
@@ -640,8 +700,13 @@
 
   var MOD_IDX = null; // índices del cursor tras la última lectura
 
+
   function modelFromDom(root, marks){
     var out = [];
+    // Un <br> ya aportó su salto: el bloque que abre a continuación no tiene que sumar otro.
+    // Pasa al pegar (deja <br>) y después apretar Enter, que abre un <div>. Sin esto,
+    // cada salto de párrafo salía duplicado.
+    var brAbierto = false;
     var idx = marks ? marks.map(function(){ return null; }) : null;
 
     function anotarTexto(node, base){
@@ -666,12 +731,13 @@
         for(var k=0;k<t.length;k++){
           var ch = t[k] === '\u00a0' ? ' ' : t[k];
           out.push({ch:ch, b:st.b, i:st.i, s:st.s, a:st.a, m:st.m});
+          brAbierto = false;
         }
         return;
       }
       if(node.nodeType !== 1) return;
       var tag = node.tagName;
-      if(tag === 'BR'){ out.push({ch:'\n',b:false,i:false,s:false,a:false}); return; }
+      if(tag === 'BR'){ out.push({ch:'\n',b:false,i:false,s:false,a:false}); brAbierto = true; return; }
 
       var st2 = {b:st.b, i:st.i, s:st.s, a:st.a, m:st.m};
       if(tag==='B'||tag==='STRONG') st2.b = true;
@@ -687,7 +753,8 @@
       if(node.classList && node.classList.contains('auto')) st2.a = true;
 
       if(BLOCK[tag] && out.length && !firstElementIsBlock(node)){
-        out.push({ch:'\n',b:false,i:false,s:false,a:false});
+        if(brAbierto) brAbierto = false;   // el salto ya lo puso el <br>
+        else out.push({ch:'\n',b:false,i:false,s:false,a:false});
       }
 
       var kids = node.childNodes;
@@ -3007,8 +3074,16 @@
   var bTapaEditor  = document.getElementById('bTapaEditor');
   var bTapaVerKey  = document.getElementById('bTapaVerKey');
   var LS_TAPA_MOD  = 'wa-editor-tapa-modelo';
-  var tapaTrans    = document.getElementById('tapaTrans');
-  var tapaTransBox = document.getElementById('tapaTransBox');
+  var bTapaCmp     = document.getElementById('bTapaComparar');
+  var tapaCmp      = document.getElementById('tapaCmp');
+  var cmpImg       = document.getElementById('cmpImg');
+  var cmpTxt       = document.getElementById('cmpTxt');
+  var cmpNivel     = document.getElementById('cmpNivel');
+  var bCmpTrans    = document.getElementById('bCmpTrans');
+  var bCmpPost     = document.getElementById('bCmpPost');
+  var tapaTransTxt = '';
+  var cmpVista     = 'trans';
+  var cmpZoom      = 0;               // 0 = ajustada al alto; después, ancho en %
   var tapaImagen   = null;
   var tapaTimer    = null, t0Tapa = 0;
 
@@ -3245,12 +3320,74 @@
   }
 
   function pintarTrans(txt){
-    tapaTrans.textContent = txt || '';
-    tapaTransBox.hidden = !txt;
+    tapaTransTxt = txt || '';
+    bTapaCmp.disabled = !(tapaTransTxt || salidaTapa.textContent);
   }
+
+  /* ---------- visor: la tapa al lado del texto, para chequear a mano ---------- */
+  function cmpPintar(){
+    var esTrans = cmpVista === 'trans';
+    bCmpTrans.setAttribute('aria-pressed', esTrans ? 'true' : 'false');
+    bCmpPost.setAttribute('aria-pressed', esTrans ? 'false' : 'true');
+    var t = esTrans ? tapaTransTxt : salidaTapa.textContent;
+    if(!t){
+      cmpTxt.textContent = esTrans
+        ? 'Esta lectura no devolvió transcripción. Puede que el modelo no haya respetado los separadores: probá de nuevo.'
+        : 'Todavía no hay posteo.';
+      cmpTxt.className = 'cmp-vacio';
+    } else {
+      cmpTxt.textContent = t;
+      cmpTxt.className = '';
+    }
+  }
+
+  function cmpAplicarZoom(){
+    if(cmpZoom === 0){
+      cmpImg.style.width = 'auto';
+      cmpImg.style.maxWidth = '100%';
+      cmpImg.style.maxHeight = 'calc(100vh - 120px)';
+      cmpNivel.textContent = 'ajustada';
+    } else {
+      cmpImg.style.maxHeight = 'none';
+      cmpImg.style.maxWidth = 'none';
+      cmpImg.style.width = cmpZoom + '%';
+      cmpNivel.textContent = cmpZoom + '%';
+    }
+  }
+
+  function cmpAbrir(){
+    if(!tapaImagen && !tapaTransTxt) return;
+    if(tapaImagen) cmpImg.src = tapaImagen;
+    cmpZoom = 0; cmpAplicarZoom();
+    cmpPintar();
+    tapaCmp.hidden = false;
+    document.body.style.overflow = 'hidden';
+  }
+
+  function cmpCerrar(){
+    tapaCmp.hidden = true;
+    document.body.style.overflow = '';
+  }
+
+  bTapaCmp.addEventListener('click', cmpAbrir);
+  document.getElementById('bCmpCerrar').addEventListener('click', cmpCerrar);
+  bCmpTrans.addEventListener('click', function(){ cmpVista = 'trans'; cmpPintar(); });
+  bCmpPost.addEventListener('click', function(){ cmpVista = 'post'; cmpPintar(); });
+  document.getElementById('bCmpFit').addEventListener('click', function(){ cmpZoom = 0; cmpAplicarZoom(); });
+  document.getElementById('bCmpMas').addEventListener('click', function(){
+    cmpZoom = cmpZoom === 0 ? 120 : Math.min(cmpZoom + 40, 400); cmpAplicarZoom();
+  });
+  document.getElementById('bCmpMenos').addEventListener('click', function(){
+    if(cmpZoom === 0) return;
+    cmpZoom = cmpZoom <= 120 ? 0 : cmpZoom - 40; cmpAplicarZoom();
+  });
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape' && !tapaCmp.hidden) cmpCerrar();
+  });
 
   function pintarTapa(txt){
     salidaTapa.textContent = txt;
+    if(bTapaCmp) bTapaCmp.disabled = !(txt || tapaTransTxt);
     tapaNum.textContent = txt.length.toLocaleString('es-AR') + ' caracteres';
   }
 
