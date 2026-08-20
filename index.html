@@ -307,6 +307,18 @@
     font-family:var(--mono);font-size:10.5px;color:#5F7A64;margin-top:4px;
   }
   .tick{color:#3B9BE0;letter-spacing:-3px;font-size:12px}
+  .tapa-trans{
+    border-top:1px solid var(--line);
+    font-family:var(--mono);font-size:12px;color:var(--ink-3);
+  }
+  .tapa-trans>summary{
+    padding:10px 14px;cursor:pointer;user-select:none;
+  }
+  .tapa-trans>pre{
+    margin:0;padding:0 14px 14px;max-height:340px;overflow:auto;
+    white-space:pre-wrap;word-break:break-word;
+    font-family:var(--mono);font-size:12px;line-height:1.55;color:var(--ink-2);
+  }
   .limite{
     display:flex;align-items:center;gap:9px;flex-wrap:wrap;
     padding:10px 14px;border-top:1px solid var(--line);
@@ -558,6 +570,11 @@
           </div>
         </div>
 
+        <details class="tapa-trans" id="tapaTransBox" hidden="">
+          <summary>Ver la transcripción de la tapa</summary>
+          <pre id="tapaTrans"></pre>
+        </details>
+
         <div class="limite">
           <span id="tapaNum">0 caracteres</span>
           <button id="bTapaEditor" class="btn-quiet">Pasar al editor</button>
@@ -566,6 +583,7 @@
         <div class="legend">
           <p>El texto sale con el formato de WhatsApp ya puesto: <code>*negrita*</code> con un asterisco, viñetas <code>•</code> y una línea vacía debajo de cada nota para pegar el link. Sin emojis.</p>
           <p>Cada nota lleva de uno a tres bullets, según lo que dé la bajada: son oraciones completas, no telegramas, y ninguna repite lo que ya dice el título.</p>
+          <p>El modelo trabaja en dos pasos: primero transcribe la tapa entera y después escribe el posteo solo con esa transcripción. Queda guardada en <strong>Ver la transcripción de la tapa</strong>: si un dato del posteo no aparece ahí, es un invento.</p>
           <p>Quedan afuera las notas de la franja de arriba: son avances, no van. El orden es el de la jerarquía visual de la tapa.</p>
           <p>La foto y la key van directo a OpenAI, sin pasar por ningún servidor propio. Si un dato de la tapa está borroso, el modelo lo omite en vez de aproximarlo: conviene revisar antes de mandar.</p>
           <p><b>Pasar al editor</b> lleva el texto a la pestaña de WhatsApp para retocarlo con las herramientas de siempre.</p>
@@ -2989,14 +3007,16 @@
   var bTapaEditor  = document.getElementById('bTapaEditor');
   var bTapaVerKey  = document.getElementById('bTapaVerKey');
   var LS_TAPA_MOD  = 'wa-editor-tapa-modelo';
+  var tapaTrans    = document.getElementById('tapaTrans');
+  var tapaTransBox = document.getElementById('tapaTransBox');
   var tapaImagen   = null;
   var tapaTimer    = null, t0Tapa = 0;
 
   var SISTEMA_TAPA = [
-    'Sos un editor de Incertis. Recibís la foto de la tapa de un diario y devolvés un único texto listo para publicar en WhatsApp.',
+    'Sos un editor de Incertis. Recibís la foto de la tapa de un diario y trabajás en dos pasos: primero transcribís la tapa, después escribís el posteo de WhatsApp a partir de esa transcripción.',
     '',
     'REGLA PRINCIPAL: NADA QUE NO ESTÉ EN LA TAPA',
-    'Todo lo que escribas tiene que estar escrito en la tapa. Cada dato de cada bullet tiene que poder señalarse con el dedo en la imagen. Esta regla está por encima de todas las demás: si cumplirla deja un bullet más corto o una nota con un solo bullet, se cumple igual.',
+    'Todo lo que escribas en el posteo tiene que estar en la transcripción del paso 1. Esta regla está por encima de todas las demás: si cumplirla deja un bullet más corto o una nota con un solo bullet, se cumple igual.',
     '- No expliques quién es una persona ni agregues su cargo, su partido, su club o su nacionalidad si la tapa no lo dice.',
     '- No agregues antecedentes, causas, consecuencias, ni qué pasó antes o qué puede pasar después. Aunque lo sepas y sea cierto.',
     '- No deduzcas ni concluyas: si la tapa dice A, no escribas B porque se desprende de A.',
@@ -3005,26 +3025,43 @@
     '- Tu conocimiento del tema sirve para leer bien la tapa, nunca para sumarle contenido.',
     'Un bullet pobre y fiel es mejor que uno completo e inventado.',
     '',
-    'TAREA',
-    '1. Recorré la tapa entera, de arriba a abajo y de izquierda a derecha, y hacé la lista de TODOS los títulos de notas.',
-    '2. EXCLUÍ únicamente los módulos de la franja superior, la que está por encima de la línea con la fecha y el precio: son avances, van en módulos chicos con foto de rostro, a la izquierda o a la derecha del logo. Todo lo que está por debajo de esa línea entra.',
-    '3. Ordená las notas por jerarquía visual: título principal, después la columna derecha de arriba hacia abajo, después la nota de la foto central, después las notas del pie.',
-    '4. Para cada nota, leé la bajada y el copete completos y extraé la información clave.',
-    '5. Escribí entre uno y tres bullets por nota, según lo que la bajada realmente aporte.',
+    '=== PASO 1: TRANSCRIPCIÓN ===',
+    'Transcribí TODO el texto de la tapa, palabra por palabra, sin resumir, sin corregir y sin reformular.',
+    '- EXCLUÍ únicamente el cabezal: el logo del diario y la franja de avances que está POR ENCIMA de la línea con la fecha y el precio. De esa línea para abajo entra todo.',
+    '- Recorré la tapa entera, de arriba a abajo y de izquierda a derecha. Mirá especialmente el pie de página, el final de cada columna y los huecos entre notas grandes: ahí se esconden las notas chicas.',
+    '- Numerá las notas en orden de jerarquía visual: título principal, después la columna derecha de arriba hacia abajo, después la nota de la foto central, después las del pie.',
+    '- De cada nota transcribí, con estas etiquetas y en este orden: VOLANTA (si tiene), TITULO, BAJADA (el copete completo, entero, sin cortar).',
+    '- Si una nota no tiene bajada, escribí BAJADA: (sin bajada).',
+    '- Los epígrafes de foto van aparte, etiquetados EPIGRAFE. No son notas y no llevan número.',
+    '- Si un texto está borroso, cortado o no se lee con seguridad, transcribí lo que sí se lee y poné [ilegible] en el resto. Nunca completes de memoria ni adivines una palabra.',
+    'Formato del paso 1:',
+    'FECHA: [la fecha tal como figura en la tapa]',
+    'DIARIO: [el nombre del diario]',
+    'NOTA 1',
+    'VOLANTA: [texto]',
+    'TITULO: [texto]',
+    'BAJADA: [texto completo]',
+    'NOTA 2',
+    '[y así con todas]',
     '',
-    'NINGUNA NOTA SE OMITE',
-    '- Van todas, no solo las grandes. Una tapa de diario suele tener entre cinco y diez notas debajo del cabezal.',
-    '- Entran también: las notas chicas de una sola columna, las que van sin foto, las que tienen apenas dos o tres líneas de bajada, las que cuelgan debajo de otra nota más grande y las del pie de página.',
-    '- Si un título tiene bajada propia, es una nota aparte y lleva su propio bloque, aunque esté pegado a la nota de arriba y comparta la foto.',
-    '- Si una nota no tiene bajada, va igual: título solo, sin bullets.',
-    '- No agrupes dos notas en un mismo bloque ni resumas varias en un bullet.',
-    '- No confundas el epígrafe de una foto (el texto en negrita sobre la imagen o al costado, que describe lo que se ve) con un título de nota: el epígrafe no lleva bloque propio.',
+    '=== PASO 2: POSTEO ===',
+    'A partir de acá trabajás SOLO con lo que transcribiste. La imagen ya no se usa para sumar nada.',
     '',
-    'CUÁNTOS BULLETS',
-    '- Tres bullets solo si hay tres ideas distintas que se sostienen solas.',
-    '- Dos si hay dos. Uno si la bajada aporta un único dato.',
+    'TÍTULO',
+    '- Va tal cual quedó transcripto en TITULO. Sin cambios: no lo acortes, no lo alargues, no lo corrijas, no le cambies el orden de las palabras ni la puntuación.',
+    '- La volanta no va en el título ni en los bullets.',
+    '',
+    'BULLETS: HASTA TRES POR NOTA',
+    '- Salen de la BAJADA transcripta de esa nota, no de otra nota ni de la imagen.',
+    '- Tres bullets solo si la bajada tiene tres ideas distintas que se sostienen solas. Dos si hay dos. Uno si aporta un único dato.',
+    '- Si la nota quedó sin bajada, va el título solo, sin bullets.',
     '- Nunca inventes ni estires un bullet para llegar a tres. Un bullet de relleno arruina la nota entera.',
-    '- Cuenta como idea propia: una cifra y lo que mide, un nombre propio y lo que hizo, una consecuencia concreta, un plazo o una fecha de aplicación, una reacción o una respuesta de la otra parte.',
+    '- Cuenta como idea propia: una cifra y lo que mide, un nombre propio y lo que hizo, una consecuencia concreta, un plazo o una fecha, una reacción de la otra parte.',
+    '',
+    'SIN AUSENCIAS SIGNIFICATIVAS',
+    '- Si la bajada tiene una cifra, un nombre propio, un plazo o una consecuencia y ninguno de los bullets lo recoge, falta información: reescribí los bullets para que entre.',
+    '- Ante una bajada larga, primero elegí los datos más importantes y después redactá. No transcribas el principio de la bajada y dejes el final afuera.',
+    '- Un dato marcado [ilegible] no se incluye y no cuenta como ausencia.',
     '',
     'CÓMO SE ESCRIBE UN BULLET',
     '- Es una oración completa, con verbo conjugado, que se entiende sola sin haber leído el título.',
@@ -3034,16 +3071,12 @@
     '- No repitas lo que ya dice el título: el bullet suma lo que el título no cuenta.',
     '- Priorizá en este orden: cifras, nombres propios, consecuencia, contexto.',
     '- Español rioplatense, registro neutro de diario. Sin adjetivos valorativos propios.',
-    '- Si un dato de la tapa está borroso o dudoso, omitilo. No lo aproximes.',
-    '- No agregues información que no esté en la imagen.',
     '',
-    'FIDELIDAD AL TEXTO DE LA TAPA',
-    '- Las cifras, los resultados deportivos, los montos, los porcentajes, las fechas y los nombres se copian exactamente como figuran en la bajada. No los redondees ni los reformules de memoria.',
+    'FIDELIDAD AL TEXTO TRANSCRIPTO',
+    '- Las cifras, los resultados deportivos, los montos, los porcentajes, las fechas y los nombres se copian exactamente como quedaron en la transcripción. No los redondees ni los reformules de memoria.',
     '- Si la bajada dice "pasaba a perder 2-0", el bullet dice eso y no otro resultado.',
-    '- No completes con lo que sabés del tema por fuera de la tapa, aunque estés seguro. Si la bajada no lo dice, no va.',
-    '- Ante la duda entre dos lecturas de un dato, dejá el dato afuera y escribí el bullet con lo que sí se lee.',
     '',
-    'FORMATO DE SALIDA (crítico)',
+    'FORMATO DE SALIDA DEL POSTEO (crítico)',
     '- Negrita de WhatsApp: UN solo asterisco a cada lado. *así*',
     '- PROHIBIDO usar doble asterisco, almohadillas, guiones bajos o cualquier markdown que no sea WhatsApp.',
     '- PROHIBIDO usar emojis, íconos, símbolos decorativos o viñetas de fantasía en cualquier parte del texto.',
@@ -3051,7 +3084,7 @@
     '- Después del último bullet de cada nota va una línea vacía, reservada para pegar el link, y después otra línea vacía antes del título siguiente. O sea: dos líneas vacías entre una nota y la que sigue.',
     '- No pongas número de página.',
     '',
-    'ESTRUCTURA EXACTA (las líneas VACÍAS marcadas son obligatorias)',
+    'ESTRUCTURA EXACTA DEL POSTEO (las líneas VACÍAS marcadas son obligatorias)',
     '*[NOMBRE DEL DIARIO EN MAYÚSCULAS]* — [fecha tal como figura en la tapa]',
     '(línea vacía)',
     '*[Título 1 textual de la tapa]*',
@@ -3068,13 +3101,18 @@
     'Donde dice (línea vacía) va una línea realmente vacía, sin texto, sin paréntesis y sin ningún símbolo.',
     '',
     'CHEQUEO ANTES DE RESPONDER',
-    '- Volvé a mirar la tapa y contá los títulos que hay debajo de la franja superior. Si tu texto tiene menos bloques que esa cuenta, te faltan notas: agregalas.',
-    '- Revisá especialmente la parte de abajo de cada columna y los espacios entre notas grandes: ahí es donde se esconden las notas chicas.',
-    '- Verificá que ningún bullet contradiga la bajada y que ningún bullet repita el título.',
-    '- Releé cada bullet contra la bajada de su nota y preguntate de dónde salió cada dato. Si hay uno solo que no puedas ubicar en la tapa, borralo y reescribí el bullet sin él, aunque quede más corto.',
+    '- Contá las notas numeradas del paso 1 y contá los bloques del posteo. Tienen que dar el mismo número. Si el posteo tiene menos, agregá las que faltan.',
+    '- Verificá que cada título del posteo sea idéntico al TITULO transcripto, carácter por carácter.',
+    '- Releé cada bullet contra la BAJADA de su nota y preguntate de dónde salió cada dato. Si hay uno solo que no puedas ubicar en la transcripción, borralo y reescribí el bullet sin él, aunque quede más corto.',
+    '- Revisá que ninguna bajada haya quedado con un dato importante afuera.',
     '',
-    'SALIDA',
-    'Devolvé únicamente el texto final. Sin introducción, sin explicación, sin cierre, sin comentarios sobre lo que hiciste.'
+    'CÓMO SE ENTREGA',
+    'Devolvé las dos partes, en este orden y con estos separadores en una línea sola:',
+    '===TRANSCRIPCION===',
+    '[el paso 1 completo]',
+    '===POSTEO===',
+    '[el texto final para WhatsApp]',
+    'Nada antes del primer separador, nada después del posteo. Sin introducción, sin explicación, sin comentarios sobre lo que hiciste.'
   ].join('\n');
 
   function notaTapa(msg, clase){
@@ -3177,6 +3215,15 @@
     '|[\\u2600-\\u27BF\\u2934-\\u2935\\u2B00-\\u2BFF]' +// ☀ a ➿, flechas curvas, ⬛ ⭐
     '|[\\u3030\\u303D\\u3297\\u3299]', 'g');
 
+  function partirTapa(t){
+    // el modelo devuelve las dos partes separadas; al posteo se va solo la segunda
+    var s = String(t || '');
+    var m = s.split(/^\s*=+\s*POSTEO\s*=+\s*$/mi);
+    if(m.length < 2) return {trans:'', posteo:s};   // si no respetó el molde, se usa todo
+    var trans = m[0].replace(/^\s*=+\s*TRANSCRIPCION\s*=+\s*$/mi, '').trim();
+    return {trans:trans, posteo:m.slice(1).join('\n').trim()};
+  }
+
   function formatoTapa(t){
     t = String(t || '').trim()
          .replace(/^```[a-zA-Z]*\s*\n?/, '')          // por si vino envuelto en bloque de código
@@ -3195,6 +3242,11 @@
     t = t.replace(/^•[ \t]*/gm, '• ');
     t = t.replace(/\n{4,}/g, '\n\n\n');               // dos vacías como máximo: link + separación
     return t.trim() + '\n';                           // la última nota también se lleva su renglón de link
+  }
+
+  function pintarTrans(txt){
+    tapaTrans.textContent = txt || '';
+    tapaTransBox.hidden = !txt;
   }
 
   function pintarTapa(txt){
@@ -3233,11 +3285,11 @@
       body: JSON.stringify({
         model: modelo,
         temperature: 0.2,
-        max_tokens: 4000,
+        max_tokens: 12000,
         messages: [
           {role:'system', content: SISTEMA_TAPA},
           {role:'user', content: [
-            {type:'text', text:'Esta es la tapa. Devolvé únicamente el texto final para WhatsApp.'},
+            {type:'text', text:'Esta es la tapa. Primero transcribila entera bajo ===TRANSCRIPCION=== y después, solo con esa transcripción, escribí el posteo bajo ===POSTEO===.'},
             {type:'image_url', image_url:{url: tapaImagen, detail:'high'}}
           ]}
         ]
@@ -3252,10 +3304,12 @@
       }
       var txt = res.d.choices && res.d.choices[0] && res.d.choices[0].message
         ? res.d.choices[0].message.content : '';
-      txt = formatoTapa(txt);
+      var partes = partirTapa(txt);
+      pintarTrans(partes.trans);
+      txt = formatoTapa(partes.posteo);
       if(!txt){ notaTapa('La respuesta vino vacía. Probá de nuevo o con otra foto.', 'error'); return; }
       pintarTapa(txt);
-      notaTapa('Listo. Revisá los datos contra la tapa antes de mandar: si algo estaba borroso, quedó afuera.', 'ok');
+      notaTapa('Listo. Abrí la transcripción para comparar bullet por bullet: lo que no esté ahí, no debería estar en el posteo.', 'ok');
     })
     .catch(function(err){
       notaTapa('No se pudo conectar con la API: ' + err.message, 'error');
@@ -3271,6 +3325,7 @@
     tapaDz.hidden = false;
     bTapaLeer.disabled = true;
     pintarTapa('');
+    pintarTrans('');
     notaTapa('Listo para la próxima tapa.');
   });
 
