@@ -78,7 +78,7 @@
 
   /* ---------- barra flotante sobre la selección ---------- */
   .burbuja{
-    position:absolute;z-index:40;display:flex;gap:2px;padding:4px;
+    position:absolute;z-index:90;display:flex;gap:2px;padding:4px;
     background:var(--ink);border-radius:10px;
     box-shadow:0 6px 20px -6px rgba(19,26,33,.55);
   }
@@ -339,10 +339,21 @@
     padding:14px;text-align:center;
   }
   .cmp-foto img{display:block;margin:0 auto;background:#fff;box-shadow:0 2px 10px -6px rgba(19,26,33,.6)}
-  .cmp-txt{overflow:auto;background:var(--surface);padding:16px 18px}
-  .cmp-txt pre{
-    margin:0;white-space:pre-wrap;word-break:break-word;
+  .cmp-txt{overflow:auto;background:var(--surface);padding:0}
+  .cmp-txt>pre{
+    margin:0;padding:16px 18px;white-space:pre-wrap;word-break:break-word;
     font-family:var(--mono);font-size:13px;line-height:1.65;color:var(--ink);
+  }
+  .cmp-txt .bubble{max-height:none}
+  #cmpEdit{
+    outline:none;min-height:120px;
+    font-family:var(--body);font-size:15px;line-height:1.5;color:var(--ink);
+    white-space:pre-wrap;word-break:break-word;
+  }
+  #cmpEdit:empty::before{content:"Todavía no hay posteo.";color:var(--ink-3)}
+  .cmp-pie{
+    margin:0;padding:10px 18px 16px;
+    font-family:var(--mono);font-size:11.5px;color:var(--ink-3);
   }
   .cmp-vacio{font-family:var(--mono);font-size:12px;color:var(--ink-3)}
   @media (max-width:820px){
@@ -366,6 +377,7 @@
     padding:10px 14px;border-top:1px solid var(--line);
     font-family:var(--mono);font-size:12px;color:var(--ink-3);
   }
+  #tapaNum.pasado{color:var(--pencil);font-weight:600}
   .limite select{
     font-family:var(--mono);font-size:11.5px;color:var(--ink);
     border:1px solid var(--line);border-radius:8px;padding:4px 7px;background:var(--surface);
@@ -614,7 +626,8 @@
         </div>
 
         <div class="limite">
-          <span id="tapaNum">0 caracteres</span>
+          <span id="tapaNum">0 / 1.024 caracteres</span>
+          <button id="bTapaLimite" class="btn-quiet" hidden="">Texto completo</button>
           <button id="bTapaEditor" class="btn-quiet">Pasar al editor</button>
         </div>
 
@@ -622,6 +635,7 @@
           <p>El texto sale con el formato de WhatsApp ya puesto: <code>*negrita*</code> con un asterisco, viñetas <code>•</code> y una línea vacía debajo de cada nota para pegar el link. Sin emojis.</p>
           <p>Cada nota lleva de uno a tres bullets, según lo que dé la bajada: son oraciones completas, no telegramas, y ninguna repite lo que ya dice el título.</p>
           <p>El modelo trabaja en dos pasos: primero transcribe la tapa entera y después escribe el posteo solo con esa transcripción. <strong>Comparar con la tapa</strong> abre la foto al lado del texto, con zoom, para chequear a mano: si un dato del posteo no está en la transcripción es un invento, y si está en la transcripción pero en ningún bullet, es una ausencia.</p>
+          <p>WhatsApp corta el pie de foto en <b>1.024 caracteres</b>. El posteo se ajusta solo a ese límite: se conservan todos los títulos y se recortan bullets desde las notas de menor jerarquía, cuidando primero las tres primeras. <b>Texto completo</b> muestra la versión sin recortar para elegir a mano qué dejar.</p>
           <p>Quedan afuera las notas de la franja de arriba: son avances, no van. El orden es el de la jerarquía visual de la tapa.</p>
           <p>La foto y la key van directo a OpenAI, sin pasar por ningún servidor propio. Si un dato de la tapa está borroso, el modelo lo omite en vez de aproximarlo: conviene revisar antes de mandar.</p>
           <p><b>Pasar al editor</b> lleva el texto a la pestaña de WhatsApp para retocarlo con las herramientas de siempre.</p>
@@ -663,7 +677,15 @@
   </div>
   <div class="cmp-body">
     <div class="cmp-foto" id="cmpFoto"><img id="cmpImg" alt="Tapa del diario"></div>
-    <div class="cmp-txt"><pre id="cmpTxt"></pre></div>
+    <div class="cmp-txt" id="cmpPanel">
+      <pre id="cmpTxt" hidden=""></pre>
+      <div class="chat" id="cmpChat">
+        <div class="bubble">
+          <div id="cmpEdit" contenteditable="true" spellcheck="false"></div>
+        </div>
+      </div>
+      <p class="cmp-pie" id="cmpPie">Editá acá mismo: seleccioná texto y usá la barra flotante. Los cambios van al posteo.</p>
+    </div>
   </div>
 </div>
 
@@ -2932,13 +2954,21 @@
     var sel = window.getSelection();
     if(!sel || sel.rangeCount === 0 || sel.isCollapsed) return null;
     var nodo = sel.getRangeAt(0).commonAncestorContainer;
+    if(tapaCmp && !tapaCmp.hidden){
+      return cmpEdit.contains(nodo) ? OPTS_CMP : null;   // con el visor abierto, solo el visor
+    }
     if(!vistaX.hidden  && editorX.contains(nodo)) return OPTS_X;
     if(!vistaWa.hidden && editor.contains(nodo))  return OPTS_WA;
     return null;
   }
 
+  function ctxActual(){
+    if(tapaCmp && !tapaCmp.hidden) return OPTS_CMP;
+    return contextoBurbuja() || (vistaX.hidden ? OPTS_WA : OPTS_X);
+  }
+
   function comandoBurbuja(cmd){
-    var ctx = contextoBurbuja() || (vistaX.hidden ? OPTS_WA : OPTS_X);
+    var ctx = contextoBurbuja() || ctxActual();
     ctx.el.focus();
     try{ document.execCommand(cmd, false, null); }catch(e){}
     ctx.sync();
@@ -2949,9 +2979,9 @@
     b.addEventListener('mousedown', function(ev){ ev.preventDefault(); });
     b.addEventListener('click', function(){
       var lista = b.getAttribute('data-lista');
-      if(b.getAttribute('data-mono')) toggleMono(contextoBurbuja() || (vistaX.hidden ? OPTS_WA : OPTS_X));
+      if(b.getAttribute('data-mono')) toggleMono(contextoBurbuja() || ctxActual());
       else if(b.getAttribute('data-titulo')) tituloDeSeleccion();
-      else if(lista) togglePrefijo(lista, contextoBurbuja() || (vistaX.hidden ? OPTS_WA : OPTS_X));
+      else if(lista) togglePrefijo(lista, contextoBurbuja() || ctxActual());
       else comandoBurbuja(b.getAttribute('data-cmd'));
     });
   });
@@ -2993,7 +3023,7 @@
 
     // la cita solo existe en WhatsApp y Telegram
     Array.prototype.forEach.call(burbujaX.querySelectorAll('[data-solo="wa"]'), function(b){
-      b.hidden = (ctx !== OPTS_WA);
+      b.hidden = (ctx === OPTS_X) || (ctx === OPTS_CMP && !!b.getAttribute('data-titulo'));
     });
 
     burbujaX.hidden = false;
@@ -3067,6 +3097,7 @@
   var tapaEstado   = document.getElementById('tapaEstado');
   var salidaTapa   = document.getElementById('salidaTapa');
   var tapaNum      = document.getElementById('tapaNum');
+  var bTapaLim     = document.getElementById('bTapaLimite');
   var bTapaLeer    = document.getElementById('bTapaLeer');
   var bTapaElegir  = document.getElementById('bTapaElegir');
   var bTapaLimpiar = document.getElementById('bTapaLimpiar');
@@ -3078,10 +3109,17 @@
   var tapaCmp      = document.getElementById('tapaCmp');
   var cmpImg       = document.getElementById('cmpImg');
   var cmpTxt       = document.getElementById('cmpTxt');
+  var cmpChat      = document.getElementById('cmpChat');
+  var cmpEdit      = document.getElementById('cmpEdit');
+  var cmpPie       = document.getElementById('cmpPie');
+  var cmpTimer     = null;
+  var OPTS_CMP     = {el: cmpEdit, bala: '\u2022 ', sync: function(){ cmpSync(); ubicarBurbuja(); }};
   var cmpNivel     = document.getElementById('cmpNivel');
   var bCmpTrans    = document.getElementById('bCmpTrans');
   var bCmpPost     = document.getElementById('bCmpPost');
   var tapaTransTxt = '';
+  var tapaCompleto = '';    // el posteo tal como lo devolvió el modelo
+  var tapaRecorte  = null;  // resultado del ajuste a 1.024
   var cmpVista     = 'trans';
   var cmpZoom      = 0;               // 0 = ajustada al alto; después, ancho en %
   var tapaImagen   = null;
@@ -3299,6 +3337,73 @@
     return {trans:trans, posteo:m.slice(1).join('\n').trim()};
   }
 
+  /* ---------- límite de 1.024 del pie de foto de WhatsApp ---------- */
+  var LIMITE_TAPA = 1024;
+
+  function partirPosteo(t){
+    var lineas = String(t||'').split('\n');
+    var cab = '', notas = [], act = null;
+    for(var i=0;i<lineas.length;i++){
+      var l = lineas[i].trim();
+      if(!l) continue;
+      if(l.charAt(0) === '\u2022'){ if(act) act.bullets.push(l); continue; }
+      if(!cab && !notas.length && !act){ cab = l; continue; }
+      act = {titulo:l, bullets:[]}; notas.push(act);
+    }
+    return {cab:cab, notas:notas};
+  }
+  function armarPosteo(o){
+    var bloques = o.notas.map(function(n){
+      return n.bullets.length ? n.titulo + '\n' + n.bullets.join('\n') : n.titulo;
+    });
+    var t = (o.cab ? o.cab + '\n\n' : '') + bloques.join('\n\n\n');
+    return t.trim() + '\n';
+  }
+  function ajustarLimite(txt, limite){
+    limite = limite || LIMITE_TAPA;
+    if(txt.length <= limite) return {txt:txt, quitados:0, sobra:false};
+    var o = partirPosteo(txt), quitados = 0;
+    function largo(){ return armarPosteo(o).length; }
+
+    // Baja de a un bullet por vez y por niveles, del final hacia adelante:
+    // primero todas las notas de 3 a 2, después de 2 a 1, después de 1 a 0.
+    // Así el recorte queda parejo en vez de vaciar una nota entera.
+    function nivelar(desde, hasta, piso){
+      var seguir = true;
+      while(seguir && largo() > limite){
+        seguir = false;
+        for(var i=desde;i>=hasta;i--){
+          if(o.notas[i] && o.notas[i].bullets.length > piso){
+            o.notas[i].bullets.pop(); quitados++; seguir = true;
+            if(largo() <= limite) return true;
+          }
+        }
+      }
+      return largo() <= limite;
+    }
+
+    var ult = o.notas.length - 1;
+    // las tres primeras notas son las que mandan: se tocan al final
+    [2,1,0].some(function(p){ return nivelar(ult, 3, p); });
+    if(largo() > limite) [2,1].some(function(p){ return nivelar(Math.min(2,ult), 0, p); });
+    return {txt:armarPosteo(o), quitados:quitados, sobra:largo() > limite};
+  }
+
+  function estadoLimite(){
+    var hayRecorte = !!(tapaRecorte && tapaRecorte.quitados);
+    bTapaLim.hidden = !hayRecorte;
+    if(!hayRecorte) return;
+    var completo = salidaTapa.textContent === tapaCompleto;
+    bTapaLim.textContent = completo ? 'Ajustar a 1.024' : 'Texto completo';
+  }
+
+  function numTapa(txt){
+    var n = (txt || '').length;
+    tapaNum.textContent = n.toLocaleString('es-AR') + ' / ' +
+      LIMITE_TAPA.toLocaleString('es-AR') + ' caracteres';
+    tapaNum.className = n > LIMITE_TAPA ? 'pasado' : '';
+  }
+
   function formatoTapa(t){
     t = String(t || '').trim()
          .replace(/^```[a-zA-Z]*\s*\n?/, '')          // por si vino envuelto en bloque de código
@@ -3329,16 +3434,28 @@
     var esTrans = cmpVista === 'trans';
     bCmpTrans.setAttribute('aria-pressed', esTrans ? 'true' : 'false');
     bCmpPost.setAttribute('aria-pressed', esTrans ? 'false' : 'true');
-    var t = esTrans ? tapaTransTxt : salidaTapa.textContent;
-    if(!t){
-      cmpTxt.textContent = esTrans
-        ? 'Esta lectura no devolvió transcripción. Puede que el modelo no haya respetado los separadores: probá de nuevo.'
-        : 'Todavía no hay posteo.';
-      cmpTxt.className = 'cmp-vacio';
+    cmpTxt.hidden  = !esTrans;
+    cmpChat.hidden = esTrans;
+    if(esTrans){
+      cmpTxt.textContent = tapaTransTxt ||
+        'Esta lectura no devolvió transcripción. Puede que el modelo no haya respetado los separadores: probá de nuevo.';
+      cmpTxt.className = tapaTransTxt ? '' : 'cmp-vacio';
+      cmpPie.textContent = 'Solo lectura: es lo que el modelo leyó de la tapa. Si un dato del posteo no está acá, es un invento.';
     } else {
-      cmpTxt.textContent = t;
-      cmpTxt.className = '';
+      // se muestra con el formato puesto, no con los asteriscos a la vista
+      cmpEdit.innerHTML = domFromModel(modelFromWa(salidaTapa.textContent || ''));
+      cmpPie.textContent = 'Editá acá mismo: seleccioná texto y usá la barra flotante. Los cambios van al posteo.';
     }
+    burbujaX.hidden = true;
+  }
+
+  // lo editado vuelve a texto de WhatsApp con el mismo serializador del editor grande
+  function cmpSync(){
+    // el renglón final, reservado para pegar el link, lo agrega formatoTapa: acá se mantiene
+    var wa = waFromModel(modelFromDom(cmpEdit), 'wa') + '\n';
+    salidaTapa.textContent = wa;
+    numTapa(wa);
+    bTapaCmp.disabled = !(wa || tapaTransTxt);
   }
 
   function cmpAplicarZoom(){
@@ -3359,15 +3476,50 @@
     if(!tapaImagen && !tapaTransTxt) return;
     if(tapaImagen) cmpImg.src = tapaImagen;
     cmpZoom = 0; cmpAplicarZoom();
+    cmpVista = salidaTapa.textContent ? 'post' : 'trans';
     cmpPintar();
     tapaCmp.hidden = false;
     document.body.style.overflow = 'hidden';
   }
 
   function cmpCerrar(){
+    clearTimeout(cmpTimer);
+    if(cmpVista === 'post') cmpSync();
+    burbujaX.hidden = true;
     tapaCmp.hidden = true;
     document.body.style.overflow = '';
   }
+
+  cmpEdit.addEventListener('input', function(){
+    clearTimeout(cmpTimer);
+    cmpTimer = setTimeout(cmpSync, 200);   // no serializar en cada tecla
+  });
+  cmpEdit.addEventListener('blur', function(){ clearTimeout(cmpTimer); cmpSync(); });
+  // pegar como texto plano, igual que en el editor grande
+  cmpEdit.addEventListener('paste', function(ev){
+    ev.preventDefault();
+    var t = (ev.clipboardData || window.clipboardData).getData('text/plain').replace(/\r\n?/g,'\n');
+    var partes = t.split('\n'), frag = document.createDocumentFragment();
+    partes.forEach(function(p, idx){
+      if(idx) frag.appendChild(document.createElement('br'));
+      if(p) frag.appendChild(document.createTextNode(p));
+    });
+    var sel = window.getSelection();
+    if(!sel.rangeCount) return;
+    var r = sel.getRangeAt(0);
+    r.deleteContents(); r.insertNode(frag); sel.collapseToEnd();
+    cmpSync();
+  });
+
+  bTapaLim.addEventListener('click', function(){
+    if(!tapaRecorte) return;
+    var completo = salidaTapa.textContent === tapaCompleto;
+    pintarTapa(completo ? tapaRecorte.txt : tapaCompleto);
+    estadoLimite();
+    notaTapa(completo
+      ? 'Ajustado: entra en el pie de foto.'
+      : 'Texto completo, con todos los bullets. Pasa de 1.024: sirve para elegir a mano qué dejar.');
+  });
 
   bTapaCmp.addEventListener('click', cmpAbrir);
   document.getElementById('bCmpCerrar').addEventListener('click', cmpCerrar);
@@ -3388,7 +3540,7 @@
   function pintarTapa(txt){
     salidaTapa.textContent = txt;
     if(bTapaCmp) bTapaCmp.disabled = !(txt || tapaTransTxt);
-    tapaNum.textContent = txt.length.toLocaleString('es-AR') + ' caracteres';
+    numTapa(txt);
   }
 
   function tapaCargando(on){
@@ -3445,8 +3597,18 @@
       pintarTrans(partes.trans);
       txt = formatoTapa(partes.posteo);
       if(!txt){ notaTapa('La respuesta vino vacía. Probá de nuevo o con otra foto.', 'error'); return; }
-      pintarTapa(txt);
-      notaTapa('Listo. Abrí la transcripción para comparar bullet por bullet: lo que no esté ahí, no debería estar en el posteo.', 'ok');
+      tapaCompleto = txt;
+      tapaRecorte = ajustarLimite(txt);
+      pintarTapa(tapaRecorte.txt);
+      estadoLimite();
+      if(tapaRecorte.sobra){
+        notaTapa('Ni con los títulos solos entra en 1.024. Hay que acortar algún título a mano en Comparar con la tapa.', 'error');
+      } else if(tapaRecorte.quitados){
+        notaTapa('Listo. Saqué ' + tapaRecorte.quitados + ' bullet' + (tapaRecorte.quitados>1?'s':'') +
+          ' de las notas de menor jerarquía para entrar en los 1.024 del pie de foto. Con "Texto completo" ves lo que quedó afuera.', 'ok');
+      } else {
+        notaTapa('Listo. Abrí la transcripción para comparar bullet por bullet: lo que no esté ahí, no debería estar en el posteo.', 'ok');
+      }
     })
     .catch(function(err){
       notaTapa('No se pudo conectar con la API: ' + err.message, 'error');
@@ -3463,6 +3625,7 @@
     bTapaLeer.disabled = true;
     pintarTapa('');
     pintarTrans('');
+    tapaCompleto = ''; tapaRecorte = null; estadoLimite();
     notaTapa('Listo para la próxima tapa.');
   });
 
