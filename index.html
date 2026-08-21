@@ -308,6 +308,41 @@
   }
   .tick{color:#3B9BE0;letter-spacing:-3px;font-size:12px}
 
+  /* ---------- puerta de acceso ---------- */
+  body.cerrado > *:not(#puerta){display:none !important}
+  .puerta{
+    position:fixed;inset:0;z-index:120;display:flex;align-items:center;justify-content:center;
+    background:var(--paper);padding:24px;
+  }
+  .puerta[hidden]{display:none}
+  .puerta-caja{
+    width:100%;max-width:340px;background:var(--surface);
+    border:1px solid var(--line);border-radius:14px;padding:26px 24px;
+    box-shadow:0 10px 30px -18px rgba(19,26,33,.5);text-align:center;
+  }
+  .puerta-caja h2{
+    font-family:var(--display);font-size:19px;font-weight:600;margin:0 0 4px;color:var(--ink);
+  }
+  .puerta-caja p{
+    font-family:var(--mono);font-size:11.5px;color:var(--ink-3);margin:0 0 18px;letter-spacing:.02em;
+  }
+  .puerta-caja input{
+    width:100%;box-sizing:border-box;padding:9px 11px;margin-bottom:10px;
+    font-family:var(--mono);font-size:13px;color:var(--ink);text-align:center;
+    border:1px solid var(--line);border-radius:9px;background:var(--surface);
+  }
+  .puerta-caja input:focus{outline:none;border-color:var(--carbon)}
+  .puerta-caja button{width:100%;padding:9px 11px;font-size:13px}
+  .puerta-mal{
+    font-family:var(--mono);font-size:11.5px;color:var(--pencil);
+    margin:12px 0 0;min-height:14px;
+  }
+  #bSalir{
+    position:fixed;right:14px;bottom:14px;z-index:30;
+    font-family:var(--mono);font-size:11px;padding:5px 10px;
+    background:var(--surface);border:1px solid var(--line);border-radius:8px;color:var(--ink-3);
+  }
+
   /* ---------- visor de comparación: tapa contra transcripción ---------- */
   .cmp{
     position:fixed;inset:0;z-index:80;display:flex;flex-direction:column;
@@ -422,7 +457,20 @@
   #salidaTapa:empty::before{content:"Acá aparece el posteo listo.";color:#5F7A64}
 </style>
 </head>
-<body>
+<body class="cerrado">
+
+<div class="puerta" id="puerta">
+  <div class="puerta-caja">
+    <h2>Editor de posteos</h2>
+    <p>ACCESO PARA LA REDACCIÓN</p>
+    <input id="puertaClave" type="password" placeholder="Contraseña" autocomplete="current-password" spellcheck="false">
+    <button id="bPuerta" class="btn-pencil">Entrar</button>
+    <p class="puerta-mal" id="puertaMal"></p>
+  </div>
+</div>
+
+<button id="bSalir" hidden="">Salir</button>
+
 <div class="wrap">
 
   <p class="eyebrow">_cursiva_ &nbsp;*negrita*&nbsp; <span>~tachado~</span></p>
@@ -637,6 +685,7 @@
           <p>El modelo trabaja en dos pasos: primero transcribe la tapa entera y después escribe el posteo solo con esa transcripción. <strong>Comparar con la tapa</strong> abre la foto al lado del texto, con zoom, para chequear a mano: si un dato del posteo no está en la transcripción es un invento, y si está en la transcripción pero en ningún bullet, es una ausencia.</p>
           <p>WhatsApp corta el pie de foto en <b>1.024 caracteres</b>. El posteo se ajusta solo a ese límite: se conservan todos los títulos y se recortan bullets desde las notas de menor jerarquía, cuidando primero las tres primeras. <b>Texto completo</b> muestra la versión sin recortar para elegir a mano qué dejar.</p>
           <p>Quedan afuera las notas de la franja de arriba: son avances, no van. El orden es el de la jerarquía visual de la tapa.</p>
+          <p>El acceso está protegido con una contraseña compartida. Es un cartel en la puerta, no una cerradura: sirve para que no entre gente de casualidad, pero el código es público y no hay que guardar ahí nada sensible. Cada uno pone su propia key de OpenAI en su navegador.</p>
           <p>La foto y la key van directo a OpenAI, sin pasar por ningún servidor propio. Si un dato de la tapa está borroso, el modelo lo omite en vez de aproximarlo: conviene revisar antes de mandar.</p>
           <p><b>Pasar al editor</b> lleva el texto a la pestaña de WhatsApp para retocarlo con las herramientas de siempre.</p>
         </div>
@@ -688,6 +737,77 @@
     </div>
   </div>
 </div>
+
+<script>
+/* ---------- puerta de acceso ----------
+   Para cambiar la contraseña: abrí la consola del navegador (F12) y corré
+     crypto.subtle.digest('SHA-256', new TextEncoder().encode('LA-NUEVA'))
+       .then(b => console.log([...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')))
+   Pegá el resultado en CLAVE_HASH y volvé a subir el archivo.
+   Ojo: esto es un cartel en la puerta, no una cerradura. El HTML es público
+   y cualquiera que mire el código fuente entra igual. Sirve para que no se
+   metan de casualidad, no para guardar nada sensible.                        */
+(function(){
+  var CLAVE_HASH = '8ceaa79f53ccfabadd87734f5b82f86de062232da9300b43042c43b6c36403cc';
+  var MARCA = 'wa-editor-acceso';
+
+  var puerta = document.getElementById('puerta');
+  var campo  = document.getElementById('puertaClave');
+  var mal    = document.getElementById('puertaMal');
+  var bSalir = document.getElementById('bSalir');
+
+  function abrir(){
+    document.body.classList.remove('cerrado');
+    puerta.hidden = true;
+    bSalir.hidden = false;
+  }
+
+  async function hash(s){
+    var b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+    return Array.prototype.map.call(new Uint8Array(b), function(x){
+      return x.toString(16).padStart(2,'0');
+    }).join('');
+  }
+
+  try{
+    if(localStorage.getItem(MARCA) === CLAVE_HASH){ abrir(); return; }
+  }catch(e){}
+
+  // Sin crypto.subtle no se puede comparar. Solo se deja pasar si el archivo
+  // se abrió local (file://), que es una copia propia; en la web queda cerrado.
+  if(!window.crypto || !crypto.subtle){
+    if(location.protocol === 'file:'){ abrir(); return; }
+    mal.textContent = 'Este navegador no puede validar la contraseña. Probá con Chrome o Firefox actualizado.';
+    campo.disabled = true;
+    return;
+  }
+
+  async function probar(){
+    var v = campo.value;
+    if(!v) return;
+    mal.textContent = '';
+    var h = await hash(v);
+    if(h === CLAVE_HASH){
+      try{ localStorage.setItem(MARCA, h); }catch(e){}
+      abrir();
+    } else {
+      mal.textContent = 'Contraseña incorrecta.';
+      campo.value = '';
+      campo.focus();
+    }
+  }
+
+  document.getElementById('bPuerta').addEventListener('click', probar);
+  campo.addEventListener('keydown', function(ev){
+    if(ev.key === 'Enter'){ ev.preventDefault(); probar(); }
+  });
+  bSalir.addEventListener('click', function(){
+    try{ localStorage.removeItem(MARCA); }catch(e){}
+    location.reload();
+  });
+  campo.focus();
+})();
+</script>
 
 <script>
 (function(){
